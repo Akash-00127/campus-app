@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Campus Drop",
+    "slug": "campus-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/campus-drop-logo.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "predictiveBackGestureEnabled": false,
+      "softwareKeyboardLayoutMode": "resize",
+      "icon": "./assets/campus-drop-logo.png"
+    },
+    "web": {
+      "favicon": "./assets/campus-drop-logo.png"
+    },
+    "scheme": "campusdrop",
+    "plugins": [
+      "expo-router",
+      "expo-secure-store"
+    ]
+  }
+}

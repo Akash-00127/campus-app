@@ -1,0 +1,14 @@
+import {useLocalSearchParams,router} from 'expo-router';
+import {useEffect,useState} from 'react';
+import {Image,Text,View} from 'react-native';
+import {mediaUrl,request,type Catalog} from '../../src/api';
+import {useSession} from '../../src/session';
+import {Button,Loading,Notice,Screen,Title,colors,s} from '../../src/ui';
+import {ProductCard} from '../../src/storefront';
+export default function VendorPage(){
+ const {id}=useLocalSearchParams<{id:string}>();const {session}=useSession();const [data,setData]=useState<Catalog>(),[error,setError]=useState(''),[reviews,setReviews]=useState<{items:{id:string;rating:number;comment:string}[];count:number;rating:number|null}>({items:[],count:0,rating:null});
+ useEffect(()=>{if(!session)return;Promise.all([request<Catalog>(`/catalog?vendorId=${id}&limit=30`,session.accessToken),request<typeof reviews>(`/vendors/${id}/reviews`,session.accessToken)]).then(([d,r])=>{setData(d);setReviews(r)}).catch(e=>setError(e.message))},[id,session]);
+ const vendor=data?.vendors.find(v=>v.id===id);
+  return <Screen><Button secondary onPress={()=>router.back()}>← Back to campus</Button>{error&&<Notice text={error}/>} {!data&&!error&&<Loading/>}{vendor&&data&&<><View style={{marginTop:20,marginBottom:20}}>{vendor.coverImage&&<Image source={{uri:mediaUrl(vendor.coverImage)}} resizeMode="cover" style={{height:180,borderRadius:22,marginBottom:20}}/>}<Title eyebrow="YOUR CAMPUS SHOP" title={vendor.name} subtitle={vendor.description}/><View style={s.row}><Text style={s.badge}>{vendor.acceptingOrders?'OPEN FOR ORDERS':'CURRENTLY CLOSED'}</Text><Text style={s.muted}>{reviews.rating?`★ ${reviews.rating.toFixed(1)} (${reviews.count})`:'No reviews yet'}</Text></View><Text style={s.muted}>{vendor.address}</Text><Text style={s.muted}>{vendor.preparationMinutes} min preparation · Seller delivery · {vendor.codEnabled?'COD accepted':'COD unavailable'}</Text></View><Text style={s.h2}>Explore the menu</Text><View style={{flexDirection:'row',flexWrap:'wrap',justifyContent:'space-between'}}>{data.products.map(p=><ProductCard key={p.id} product={p} enabled={data.campus.serviceEnabled}/>)}</View>{data.products.length<data.total&&<Button secondary onPress={()=>request<Catalog>(`/catalog?vendorId=${id}&limit=30&page=${data.page+1}`,session!.accessToken).then(next=>setData({...next,products:[...data.products,...next.products]})).catch(e=>setError(e.message))}>More products</Button>}<Text style={s.h2}>From your campus community</Text>{reviews.items.map(r=><View key={r.id} style={s.card}><Text style={{color:colors.green,fontWeight:'800'}}>{'★'.repeat(r.rating)}{'☆'.repeat(5-r.rating)} · Verified order</Text><Text style={s.muted}>{r.comment}</Text></View>)}{!reviews.count&&<Notice text="Be the first to review after your order is delivered."/>}</>}</Screen>
+}
+
