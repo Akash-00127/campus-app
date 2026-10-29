@@ -1,3 +1,4 @@
+import type { ComponentRef } from "react";
 import {
   Keyboard,
   KeyboardAvoidingView,
@@ -24,9 +25,9 @@ export const colors = {
   orange: "#F59E0B",
 };
 export const money = (n: number) => `₹${(n / 100).toFixed(2)}`;
-const FocusContext=createContext<(input:TextInput|null)=>void>(()=>{});
+const FocusContext=createContext<(input:ComponentRef<typeof TextInput>|null)=>void>(()=>{});
 export function Screen({children}:{children:ReactNode}){
- const scroll=useRef<ScrollView>(null),viewport=useRef<View>(null),focused=useRef<TextInput|null>(null),offset=useRef(0),keyboardTop=useRef(Infinity);
+ const scroll=useRef<ComponentRef<typeof ScrollView>>(null),viewport=useRef<ComponentRef<typeof View>>(null),focused=useRef<ComponentRef<typeof TextInput>|null>(null),offset=useRef(0),keyboardTop=useRef(Infinity);
  const reveal=useCallback(()=>{const input=focused.current;if(!input||!input.isFocused())return;viewport.current?.measureInWindow((_x,vy,_w,vh)=>{input.measureInWindow((_ix,iy,_iw,ih)=>{const target=focusedScrollOffset(offset.current,iy,ih,vy,vh,keyboardTop.current);if(Math.abs(target-offset.current)>1)scroll.current?.scrollTo({y:target,animated:true});});});},[]);
  const schedule=useCallback(()=>{requestAnimationFrame(()=>requestAnimationFrame(reveal));},[reveal]);
  useEffect(()=>{const show=Keyboard.addListener('keyboardDidShow',event=>{keyboardTop.current=event.endCoordinates.screenY;schedule()});const hide=Keyboard.addListener('keyboardDidHide',()=>{keyboardTop.current=Infinity});return()=>{show.remove();hide.remove()}},[schedule]);
@@ -77,7 +78,7 @@ export function Button({
   );
 }
 export function Field({label,onFocus,style,right,...props}:TextInputProps&{label:string;right?:ReactNode}){
- const ref=useRef<TextInput>(null);const focus=useContext(FocusContext);
+ const ref=useRef<ComponentRef<typeof TextInput>>(null);const focus=useContext(FocusContext);
  return <View style={{marginBottom:14}}><Text style={s.label}>{label}</Text><View><TextInput ref={ref} accessibilityLabel={label} placeholderTextColor="#8A948B" style={[s.input,!!right&&{paddingRight:74},props.multiline&&{minHeight:90,textAlignVertical:'top'},style]} {...props} onFocus={event=>{focus(ref.current);onFocus?.(event)}}/>{right&&<View style={s.fieldRight}>{right}</View>}</View></View>
 }
 export function Notice({ text }: { text: string }) {

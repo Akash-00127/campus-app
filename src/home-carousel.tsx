@@ -1,9 +1,10 @@
+import type { ComponentRef } from "react";
 import { useEffect, useRef, useState } from "react";
 import { Image, ScrollView, StyleSheet, View, useWindowDimensions } from "react-native";
 
 export function HomeCarousel({ images }: { images: string[] }) {
   const { width } = useWindowDimensions();
-  const scroll = useRef<ScrollView>(null);
+  const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
   const [index, setIndex] = useState(0);
   const cardWidth = Math.max(280, width - 36);
   useEffect(() => {

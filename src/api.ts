@@ -150,7 +150,7 @@ export async function request<T>(
 }
 // This powers the first registration interaction. It should either show the
 // list immediately over the local campus network or reveal a retry state fast.
-export const universities = () => request<University[]>("/universities", undefined, "GET", undefined, 1200);
+export const universities = () => request<University[]>("/universities", undefined, "GET", undefined, 10000);
 export const campuses = (id: string) =>
   request<Campus[]>(`/universities/${id}/campuses`);
 export const login = (email: string, password: string) =>

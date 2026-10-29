@@ -4,7 +4,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   name: "Campus Drop",
   slug: "campus-app",
   scheme: "campusdrop",
-  plugins: ["expo-router", "expo-secure-store", "expo-notifications"],
+  plugins: ["expo-router", "expo-secure-store", "expo-notifications", "expo-status-bar"],
   android: {
     ...config.android,
     softwareKeyboardLayoutMode: "resize",
