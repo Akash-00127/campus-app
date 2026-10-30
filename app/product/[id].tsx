@@ -1,8 +1,9 @@
 import { useLocalSearchParams, router } from "expo-router";
 import { useEffect, useState } from "react";
-import { Alert, Image, Text, View } from "react-native";
+import { Alert, Image, Linking, Pressable, Text, View } from "react-native";
 import { mediaUrl, request, type Product } from "../../src/api";
 import { useSession } from "../../src/session";
+import demoPhotoCredits from "../../src/demo-photo-credits.json";
 import { Button, Loading, Notice, Screen, Title, money, s } from "../../src/ui";
 export default function ProductDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -16,6 +17,8 @@ export default function ProductDetail() {
         .catch((e) => setError(e.message));
     else router.replace("/welcome");
   }, [id, session]);
+  const demoPhotoKey = product?.image?.match(/^\/demo-food\/([a-zA-Z]+)\./)?.[1];
+  const photoCredit = demoPhotoKey ? demoPhotoCredits[demoPhotoKey as keyof typeof demoPhotoCredits] : undefined;
   return (
     <Screen>
       <Button secondary onPress={() => router.back()}>
@@ -34,6 +37,7 @@ export default function ProductDetail() {
                 style={{ height: 260, borderRadius: 24, marginBottom: 24 }}
               />
             )}
+            {photoCredit && <Pressable accessibilityRole="link" onPress={() => void Linking.openURL(photoCredit.source)}><Text style={{ fontSize: 11, color: "#64748B", marginTop: -14, marginBottom: 14 }}>Photo: {photoCredit.artist} · {photoCredit.license} · Wikimedia Commons ↗</Text></Pressable>}
             <Title
               eyebrow={product.vendor.name}
               title={product.name}
