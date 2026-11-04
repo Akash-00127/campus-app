@@ -1,8 +1,22 @@
 import { Platform } from "react-native";
+import Constants from "expo-constants";
 
-export const API_URL = Platform.OS === "web"
-  ? process.env.EXPO_PUBLIC_WEB_API_URL || "http://localhost:4000/v1"
-  : process.env.EXPO_PUBLIC_API_URL || "http://10.0.2.2:4000/v1";
+function developmentApiUrl() {
+  if (__DEV__) {
+    const hostUri = Constants.expoConfig?.hostUri;
+    const hostname = Platform.OS === "web" && typeof window !== "undefined"
+      ? window.location.hostname
+      : hostUri ? new URL(`http://${hostUri}`).hostname : undefined;
+    if (hostname) return `http://${hostname}:4000/v1`;
+  }
+  return Platform.OS === "android" ? "http://10.0.2.2:4000/v1" : "http://localhost:4000/v1";
+}
+
+export const API_URL = (
+  (Platform.OS === "web"
+    ? process.env.EXPO_PUBLIC_WEB_API_URL || process.env.EXPO_PUBLIC_API_URL
+    : process.env.EXPO_PUBLIC_API_URL) || developmentApiUrl()
+).trim().replace(/\/+$/, "");
 export const mediaUrl = (value?: string) => {
   if (!value || /^https?:\/\//i.test(value)) return value;
   return `${API_URL.replace(/\/v1\/?$/, "")}${value.startsWith("/") ? "" : "/"}${value}`;
@@ -144,6 +158,14 @@ export async function request<T>(
             : data.message || "Request failed.",
       );
     return data;
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(`The backend at ${API_URL} took too long to respond. Please try again.`);
+    }
+    if (error instanceof TypeError) {
+      throw new Error(`Cannot reach the backend at ${API_URL}. Check that it is running and your device is on the same network.`);
+    }
+    throw error;
   } finally {
     clearTimeout(timer);
   }
@@ -168,6 +190,13 @@ export const requestRegistrationOtp = (phone: string, role: "STUDENT" | "VENDOR"
     undefined,
     "POST",
     { phone, role },
+  );
+export const requestPhoneChangeOtp = (phone: string, token: string) =>
+  request<{ message: string; challenge: string; demoOtp?: string; expiresInSeconds: number }>(
+    "/auth/phone-change-otp/request",
+    token,
+    "POST",
+    { phone },
   );
 
 

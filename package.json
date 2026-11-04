@@ -31,7 +31,11 @@
     "start": "expo start",
     "android": "expo start --android",
     "ios": "expo start --ios",
-    "web": "expo start --web"
+    "web": "expo start --web --port 8082",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/runtime.test.cjs",
+    "check": "npm run typecheck && npm test",
+    "export": "expo export --platform all --output-dir .build/export --max-workers 2"
   },
   "private": true
 }

@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { useFocusEffect, router } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, router } from "expo-router";
 import { Alert, Pressable, StyleSheet, Text, View } from "react-native";
 import { request, type Address } from "../src/api";
 import { useSession } from "../src/session";
@@ -9,12 +9,15 @@ type AddressForm = Pick<Address, "label" | "building" | "details" | "phone">;
 const blankAddress: AddressForm = { label: "", building: "", details: "", phone: "" };
 
 export default function Addresses() {
-  const { session } = useSession();
+  const { session, setAccountSection } = useSession();
+  const params = useLocalSearchParams<{ origin?: string }>();
+  const fromAccount = params.origin === "account";
   const [items, setItems] = useState<Address[]>([]);
   const [editing, setEditing] = useState<Address | null>(null);
   const [form, setForm] = useState<AddressForm>(blankAddress);
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -33,12 +36,16 @@ export default function Addresses() {
   useFocusEffect(useCallback(() => { void load(); }, [load]));
 
   function openNew() {
+    setError("");
+    setSuccess("");
     setEditing(null);
     setForm(blankAddress);
     setShowForm(true);
   }
 
   function openEdit(address: Address) {
+    setError("");
+    setSuccess("");
     setEditing(address);
     setForm({ label: address.label, building: address.building, details: address.details, phone: address.phone });
     setShowForm(true);
@@ -46,8 +53,15 @@ export default function Addresses() {
 
   async function save() {
     if (!session) return;
+    if (!/^\d{10}$/.test(form.phone)) {
+      const message = "Enter a valid 10-digit delivery phone number.";
+      setError(message);
+      setSuccess("");
+      return;
+    }
     setBusy(true);
     setError("");
+    setSuccess("");
     try {
       await request(
         editing ? `/addresses/${editing.id}` : "/addresses",
@@ -58,9 +72,12 @@ export default function Addresses() {
       setShowForm(false);
       setEditing(null);
       setForm(blankAddress);
+      const message = editing ? "Delivery address updated." : "Delivery address saved.";
+      setSuccess(message);
       await load();
     } catch (caught) {
       setError((caught as Error).message);
+      setSuccess("");
     } finally {
       setBusy(false);
     }
@@ -70,11 +87,14 @@ export default function Addresses() {
     if (!session) return;
     setBusy(true);
     setError("");
+    setSuccess("");
     try {
       await request(`/addresses/${address.id}`, session.accessToken, "DELETE");
+      setSuccess("Delivery address removed.");
       await load();
     } catch (caught) {
       setError((caught as Error).message);
+      setSuccess("");
     } finally {
       setBusy(false);
     }
@@ -82,11 +102,12 @@ export default function Addresses() {
 
   return (
     <Screen>
-      <Pressable accessibilityRole="button" onPress={() => router.back()} style={a.back}>
-        <Text style={a.backText}>← Back to checkout</Text>
+      <Pressable accessibilityRole="button" onPress={() => { if (fromAccount) setAccountSection("OVERVIEW"); router.back(); }} style={a.back}>
+        <Text style={a.backText}>{fromAccount ? "← Back to account" : "← Back to checkout"}</Text>
       </Pressable>
       <Title title="Delivery addresses" subtitle="Save hostels, classrooms, and campus spots for faster checkout." />
       {error && <Notice text={error} />}
+      {success && <View style={a.success}><Text style={a.successText}>{success}</Text></View>}
       {loading && <Loading />}
 
       {showForm ? (
@@ -131,6 +152,8 @@ const a = StyleSheet.create({
   back: { alignSelf: "flex-start", paddingVertical: 8, marginBottom: 12 },
   backText: { color: colors.green, fontSize: 13, fontWeight: "800" },
   addressCard: { backgroundColor: "white", borderRadius: 18, borderWidth: 1, borderColor: colors.line, padding: 16, marginBottom: 12 },
+  success: { backgroundColor: "#EAF6EF", borderColor: "#CDE8D7", borderWidth: 1, borderRadius: 15, paddingHorizontal: 14, paddingVertical: 12, marginVertical: 10 },
+  successText: { color: "#236844", fontSize: 12, lineHeight: 18, fontWeight: "700" },
   addressTop: { flexDirection: "row", gap: 12 },
   marker: { width: 38, height: 38, borderRadius: 12, backgroundColor: "#FFF0E5", alignItems: "center", justifyContent: "center" },
   markerText: { fontSize: 21, color: colors.green },

@@ -1,4 +1,4 @@
-import * as Crypto from "expo-crypto";
+import { newCheckoutKey as newKey } from "../../src/checkout-key";
 import * as SecureStore from "../../src/secure";
 import { useCallback, useState, useRef, useEffect } from "react";
 import { useFocusEffect, router } from "expo-router";
@@ -11,8 +11,7 @@ import {
   type Profile,
 } from "../../src/api";
 import { useSession } from "../../src/session";
-import { Button, Field, Notice, Screen, Title, money, s } from "../../src/ui";
-const newKey = () => Crypto.randomUUID();
+import { EmptyState, Button, Field, Notice, Screen, Title, money, s } from "../../src/ui";
 type Quote = { totalPaise: number; discountPaise: number; subtotalPaise: number; deliveryFeePaise: number; platformFeePaise: number };
 export default function Cart() {
   const { session, cart, quantity, note, clear, replaceCart } = useSession();
@@ -379,7 +378,7 @@ export default function Cart() {
         </>
       ) : (
         <>
-          <Notice text="Your basket is waiting for something good." />
+          <EmptyState symbol="＋" title="A little room for good things" description="Your next study snack or everyday essential is just around the campus corner." />
           <Button onPress={() => router.push("/(tabs)/home")}>
             Explore your campus
           </Button>

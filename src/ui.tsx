@@ -16,12 +16,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Children, createContext, isValidElement, useCallback, useContext, useEffect, useRef, type ReactNode } from "react";
 import { focusedScrollOffset } from "./keyboard";
 export const colors = {
-  ink: "#182033",
-  green: "#E64E2E",
-  lime: "#FFF0E9",
-  bg: "#FFF9F6",
-  muted: "#727887",
-  line: "#EEE5E0",
+  ink: "#172B35",
+  green: "#D94E2C",
+  lime: "#FFF0E8",
+  bg: "#F8F7F3",
+  muted: "#6C7880",
+  line: "#E7E9E5",
+  navy: "#172F3B",
+  surface: "#FFFFFF",
   orange: "#F59E0B",
 };
 export const money = (n: number) => `₹${(n / 100).toFixed(2)}`;
@@ -67,10 +69,11 @@ export function Button({
       accessibilityRole="button"
       disabled={disabled}
       onPress={onPress}
-      style={[
+      style={({ pressed }) => [
         s.button,
         secondary && s.secondary,
         disabled && { opacity: 0.45 },
+        pressed && { opacity: 0.82, transform: [{ scale: 0.985 }] },
       ]}
     >
       {isValidElement(children) ? children : <Text style={[s.buttonText, secondary && { color: colors.green }]}>{children}</Text>}
@@ -79,7 +82,8 @@ export function Button({
 }
 export function Field({label,onFocus,style,right,...props}:TextInputProps&{label:string;right?:ReactNode}){
  const ref=useRef<ComponentRef<typeof TextInput>>(null);const focus=useContext(FocusContext);
- return <View style={{marginBottom:14}}><Text style={s.label}>{label}</Text><View><TextInput ref={ref} accessibilityLabel={label} placeholderTextColor="#8A948B" style={[s.input,!!right&&{paddingRight:74},props.multiline&&{minHeight:90,textAlignVertical:'top'},style]} {...props} onFocus={event=>{focus(ref.current);onFocus?.(event)}}/>{right&&<View style={s.fieldRight}>{right}</View>}</View></View>
+ const phone = props.keyboardType === "phone-pad";
+ return <View style={{marginBottom:14}}><Text style={s.label}>{label}</Text><View>{phone && <Text style={{position:"absolute",left:15,top:16,zIndex:1,color:colors.ink,fontSize:14,fontWeight:"700", fontFamily: "PlusJakartaSans_700Bold"}}>+91</Text>}<TextInput ref={ref} accessibilityLabel={label} placeholderTextColor="#8A948B" style={[s.input,!!right&&{paddingRight:74},props.multiline&&{minHeight:90,textAlignVertical:'top'},phone&&{paddingLeft:62},style]} {...props} maxLength={phone ? 10 : props.maxLength} onChangeText={phone ? value => props.onChangeText?.(value.replace(/\D/g, "").slice(0, 10)) : props.onChangeText} onFocus={event=>{focus(ref.current);onFocus?.(event)}}/>{right&&<View style={s.fieldRight}>{right}</View>}</View></View>
 }
 export function Notice({ text }: { text: string }) {
   return (
@@ -91,33 +95,42 @@ export function Notice({ text }: { text: string }) {
 export function Loading() {
   return <ActivityIndicator color={colors.green} style={{ margin: 30 }} />;
 }
+export function EmptyState({ symbol, title, description }: { symbol: string; title: string; description: string }) {
+  return <View style={s.empty}>
+    <View style={s.emptyIcon}><Text style={{ fontSize: 32, color: colors.green }}>{symbol}</Text></View>
+    <Text accessibilityRole="header" style={[s.h2, { textAlign: "center", marginBottom: 0 }]}>{title}</Text>
+    <Text style={[s.muted, { textAlign: "center", maxWidth: 280 }]}>{description}</Text>
+  </View>;
+}
 export const s = StyleSheet.create({
+  empty: { alignItems: "center", paddingHorizontal: 22, paddingVertical: 42, backgroundColor: "white", borderRadius: 28, borderWidth: 1, borderColor: colors.line, marginVertical: 16 },
+  emptyIcon: { width: 80, height: 80, borderRadius: 28, backgroundColor: colors.lime, alignItems: "center", justifyContent: "center", marginBottom: 10 },
   safe: { flex: 1, backgroundColor: colors.bg },
-  page: { padding: 18, paddingBottom: 96 },
+  page: { padding: 22, paddingBottom: 116, width: "100%", maxWidth: 760, alignSelf: "center" },
   eyebrow: {
     fontSize: 10,
-    fontWeight: "800",
+    fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold",
     letterSpacing: 2,
-    color: colors.orange,
+    color: colors.green,
     marginBottom: 9,
   },
   title: {
-    fontSize: 30,
-    fontWeight: "800",
+    fontSize: 34,
+    fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold",
     color: colors.ink,
     letterSpacing: -1,
   },
-  muted: { fontSize: 13, lineHeight: 21, color: colors.muted, marginTop: 7 },
+  muted: { fontSize: 13, lineHeight: 22, color: colors.muted, marginTop: 7 },
   label: {
-    fontSize: 11,
-    fontWeight: "700",
+    fontSize: 12,
+    fontWeight: "700", fontFamily: "PlusJakartaSans_700Bold",
     color: colors.muted,
     marginBottom: 7,
   },
   input: {
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 15,
+    borderRadius: 16,
     padding: 15,
     backgroundColor: "#FFFFFF",
     color: colors.ink,
@@ -125,6 +138,8 @@ export const s = StyleSheet.create({
   },
   fieldRight: { position: "absolute", right: 12, top: 0, bottom: 0, justifyContent: "center" },
   button: {
+    minHeight: 54,
+    justifyContent: "center",
     paddingVertical: 16,
     paddingHorizontal: 18,
     borderRadius: 16,
@@ -132,15 +147,16 @@ export const s = StyleSheet.create({
     alignItems: "center",
     marginTop: 8,
   },
-  buttonText: { color: "white", fontWeight: "900", fontSize: 14 },
-  secondary: { backgroundColor: "white", borderWidth: 1, borderColor: "#F2C4B6" },
+  buttonText: { color: "white", fontWeight: "900", fontFamily: "PlusJakartaSans_800ExtraBold", fontSize: 14 },
+  secondary: { backgroundColor: "white", borderWidth: 1, borderColor: colors.line },
   card: {
     backgroundColor: "white",
-    padding: 18,
-    borderRadius: 20,
+    padding: 22,
+    borderRadius: 24,
+    boxShadow: "0px 4px 20px rgba(23,47,59,0.035)",
     borderWidth: 1,
     borderColor: colors.line,
-    marginBottom: 14,
+    marginBottom: 18,
   },
   row: {
     flexDirection: "row",
@@ -150,32 +166,32 @@ export const s = StyleSheet.create({
   },
   h2: {
     fontSize: 19,
-    fontWeight: "800",
+    fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold",
     color: colors.ink,
     marginVertical: 12,
   },
-  h3: { fontSize: 16, fontWeight: "700", color: colors.ink },
+  h3: { fontSize: 16, fontWeight: "700", fontFamily: "PlusJakartaSans_700Bold", color: colors.ink },
   badge: {
     color: colors.green,
     fontSize: 10,
-    fontWeight: "800",
-    backgroundColor: "#E9F2FF",
+    fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold",
+    backgroundColor: colors.lime,
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 20,
     overflow: "hidden",
   },
   notice: {
-    backgroundColor: "#FFF0E9",
+    backgroundColor: "#F0EFE8",
     padding: 16,
-    borderRadius: 12,
+    borderRadius: 16,
     marginVertical: 12,
   },
-  price: { fontSize: 18, fontWeight: "800", color: colors.ink },
+  price: { fontSize: 18, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold", color: colors.ink },
   link: {
     color: colors.green,
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: "700", fontFamily: "PlusJakartaSans_700Bold",
     paddingVertical: 10,
   },
   chip: {
@@ -187,7 +203,7 @@ export const s = StyleSheet.create({
     borderColor: colors.line,
     marginRight: 8,
   },
-  selected: { backgroundColor: colors.lime, borderColor: "#8CB9FF" },
+  selected: { backgroundColor: colors.lime, borderColor: "#E8B29F" },
   dropdown: {
     backgroundColor: "white",
     borderWidth: 1,
@@ -201,14 +217,14 @@ export const s = StyleSheet.create({
   dropdownMeta: { color: colors.muted, fontSize: 12, marginTop: 3 },
   dropdownEmpty: { color: colors.muted, padding: 14, textAlign: "center" },
   selection: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#E9F2FF", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, marginTop: -5, marginBottom: 14 },
-  selectionText: { color: colors.ink, flex: 1, fontSize: 12, fontWeight: "700", marginRight: 8 },
-  selectionAction: { color: colors.green, fontSize: 12, fontWeight: "800" },
-  passwordToggle: { color: colors.green, fontSize: 12, fontWeight: "800", padding: 5 },
+  selectionText: { color: colors.ink, flex: 1, fontSize: 12, fontWeight: "700", fontFamily: "PlusJakartaSans_700Bold", marginRight: 8 },
+  selectionAction: { color: colors.green, fontSize: 12, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" },
+  passwordToggle: { color: colors.green, fontSize: 12, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold", padding: 5 },
   dropdownButton: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: "#E9F2FF", borderWidth: 1, borderColor: "#B8D4FF" },
   dropdownButtonOpen: { backgroundColor: colors.green, borderColor: colors.green },
-  dropdownChevron: { color: colors.green, fontSize: 20, fontWeight: "900", lineHeight: 23, marginTop: -3 },
+  dropdownChevron: { color: colors.green, fontSize: 20, fontWeight: "900", fontFamily: "PlusJakartaSans_800ExtraBold", lineHeight: 23, marginTop: -3 },
   dropdownChevronOpen: { color: "white" },
   fieldHint: { color: colors.muted, fontSize: 12, marginTop: -2, marginBottom: 8 },
   campusOption: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 15, paddingVertical: 12, borderRadius: 12, backgroundColor: "white", borderWidth: 1, borderColor: colors.line },
-  campusArrow: { color: colors.green, fontSize: 18, fontWeight: "800" },
+  campusArrow: { color: colors.green, fontSize: 18, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" },
 });

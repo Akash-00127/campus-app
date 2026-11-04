@@ -3,7 +3,7 @@ import { useFocusEffect, router } from "expo-router";
 import { Alert, Text, View } from "react-native";
 import { request, type Order, type Product } from "../../src/api";
 import { useSession } from "../../src/session";
-import { Button, Field, Notice, Screen, Title, money, s } from "../../src/ui";
+import { EmptyState, Button, Field, Notice, Screen, Title, money, s } from "../../src/ui";
 const next: Record<string, [string, string]> = {
   PLACED: ["VENDOR_ACCEPTED", "Accept order"],
   VENDOR_ACCEPTED: ["PREPARING", "Start preparing"],
@@ -109,7 +109,7 @@ export default function Orders() {
           </View>;
         })}
       </View>
-      {!orders.length && <Notice text="No orders yet. Your campus orders will appear here." />}
+      {!orders.length && <EmptyState symbol="≡" title={vendor ? "Ready for your first order" : "Good things are on the way"} description={vendor ? "New campus orders will appear here. Keep your shop open to receive them." : "Your orders and delivery updates will find a home here once you place your first order."} />}
       <View style={s.row}>{page > 1 && <Button secondary onPress={() => setPage(page - 1)}>Previous</Button>}{page * 30 < total && <Button secondary onPress={() => setPage(page + 1)}>Next</Button>}</View>
     </Screen>
   );
@@ -264,7 +264,7 @@ export default function Orders() {
         ))}
       </View>
       {!orders.length && (
-        <Notice text="No orders yet. Your campus orders will appear here." />
+        <EmptyState symbol="≡" title={vendor ? "Ready for your first order" : "Good things are on the way"} description={vendor ? "New campus orders will appear here. Keep your shop open to receive them." : "Your orders and delivery updates will find a home here once you place your first order."} />
       )}
       <View style={s.row}>
         {page > 1 && (
