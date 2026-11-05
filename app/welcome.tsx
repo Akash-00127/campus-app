@@ -1,101 +1,79 @@
-import { useState } from "react";
-import { Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { router } from "expo-router";
-import { Brand } from "../src/brand";
 
-const roles = {
-  STUDENT: { label: "Student", title: "Your campus.", accent: "Your food. Delivered.", description: "Favourite campus food, quick snacks, and everyday essentials—day or night.", image: require("../assets/onboarding-student.png"), color: "#172033", tint: "#EEF1F6", caption: "Cravings don’t follow a schedule. Neither do we." },
-  VENDOR: { label: "Vendor", title: "Your shop,", accent: "more possibilities.", description: "Reach your campus community. Manage your products and orders in one place.", image: require("../assets/onboarding-vendor.png"), color: "#FF6B35", tint: "#FFF1EB", caption: "Local shops. A stronger campus community." },
-};
-type Role = keyof typeof roles;
+import { useEffect, useRef } from "react";
+import { AccessibilityInfo, Animated, Easing, Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { router, useLocalSearchParams } from "expo-router";
+import { Brand } from "../src/brand";
+import { colors } from "../src/ui";
+
+const profiles = {
+  STUDENT: { name: "Student", detail: "Find your canteen favourites and order to your hostel.", tint: "#F1EAFB", art: require("../assets/onboarding-student.png") },
+  VENDOR: { name: "Vendor", detail: "List your dishes and take orders from your campus.", tint: "#E3F3EB", art: require("../assets/onboarding-vendor.png") },
+} as const;
+type Role = keyof typeof profiles;
 
 export default function Welcome() {
-  const [role, setRole] = useState<Role>("STUDENT");
-  const { width, height } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
-  const wide = width >= 850 && width > height;
-  const compact = height - insets.top - insets.bottom < 690;
-  const tiny = height - insets.top - insets.bottom < 540;
-  const item = roles[role];
-  function open(pathname: "/login" | "/register") {
-    router.push({ pathname, params: { role } });
-  }
-  return <SafeAreaView style={s.safe}>
-    <View style={[s.page, { paddingHorizontal: width < 380 ? 20 : 28, paddingVertical: compact ? 10 : 22 }]}>
-      <View style={s.header}>
-        <View style={s.identity}><Brand size={36} /><Text style={s.wordmark}>Campus<Text style={s.orange}> Drop</Text></Text></View>
-        {width >= 380 && <View style={s.badge}><View style={s.dot} /><Text style={s.badgeText}>Made for campus</Text></View>}
-      </View>
-      <View style={[s.content, wide && s.contentWide]}>
-        <View style={[s.intro, wide && s.introWide]}>
-          {!tiny && <Text style={s.eyebrow}>YOUR CAMPUS. A LITTLE CLOSER.</Text>}
-          <Text accessibilityRole="header" style={[s.headline, { fontSize: wide ? 58 : compact ? 34 : 42, lineHeight: wide ? 66 : compact ? 40 : 48 }]}>{item.title}{"\n"}<Text style={s.orange}>{item.accent}</Text></Text>
-          {!tiny && <Text style={s.description}>{item.description}</Text>}
-          {wide && <Text style={s.desktopNote}>One campus. One community. Endless possibilities.</Text>}
-        </View>
-        <View style={[s.experience, wide && s.experienceWide]}>
-          <View style={s.selector} accessibilityRole="tablist">
-            {(Object.keys(roles) as Role[]).map(value => <Pressable key={value} accessibilityRole="tab" accessibilityState={{ selected: role === value }} accessibilityLabel={`Continue as ${roles[value].label.toLowerCase()}`} onPress={() => setRole(value)} style={[s.role, role === value && s.selectedRole]}><Text style={[s.roleText, role === value && s.selectedRoleText]}>I'm a {roles[value].label.toLowerCase()}</Text>{role === value && <View style={s.selectionDot} />}</Pressable>)}
-          </View>
-          <View style={[s.art, { backgroundColor: item.tint, marginVertical: compact ? 10 : 18 }]}>
-            <View style={[s.halo, { borderColor: role === "STUDENT" ? "#D4DED4" : "#F3D8C8" }]} />
-            {!tiny && <View style={s.artLabel}><View style={[s.dot, { backgroundColor: item.color }]} /><Text style={[s.artLabelText, { color: item.color }]}>{role === "STUDENT" ? "THE CAMPUS IS YOURS" : "GROW WITH YOUR CAMPUS"}</Text></View>}
-            <Image source={item.image} resizeMode="contain" style={s.illustration} accessibilityLabel={`${item.label} campus illustration`} />
-            {!compact && <Text style={s.caption}>{item.caption}</Text>}
-          </View>
-          <View style={s.actions}>
-            <Pressable accessibilityRole="button" accessibilityLabel={`${item.label} login`} onPress={() => open("/login")} style={({ pressed }) => [s.primary, { backgroundColor: item.color }, pressed && s.pressed]}><Text style={s.primaryText}>Continue as {item.label.toLowerCase()}</Text><Text style={s.arrow}>→</Text></Pressable>
-            <Pressable accessibilityRole="button" accessibilityLabel={`Create ${item.label.toLowerCase()} account`} onPress={() => open("/register")} style={({ pressed }) => [s.signup, pressed && s.pressed]}><Text style={s.signupText}>New here? <Text style={s.signupAccent}>Create an account ↗</Text></Text></Pressable>
-          </View>
-        </View>
-      </View>
-      {!tiny && <View style={s.footer}><View style={s.footerLine} /><Text style={s.footerText}>LOCAL SHOPS. CAMPUS CONNECTIONS.</Text><View style={s.footerLine} /></View>}
+  const { role: value } = useLocalSearchParams<{ role?: string }>();
+  const role = value === "STUDENT" || value === "VENDOR" ? value : undefined;
+  const choices: Role[] = role ? [role] : ["STUDENT", "VENDOR"];
+  const { height, width } = useWindowDimensions();
+  const wave = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    let mounted = true;
+    let changed = false;
+    function play(reduced: boolean) {
+      wave.stopAnimation(); wave.setValue(0);
+      if (!mounted || reduced) return;
+      Animated.sequence([1,0,1,0].map(toValue => Animated.timing(wave, {
+        toValue, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: true,
+        isInteraction: false,
+      }))).start();
+    }
+    const sub = AccessibilityInfo.addEventListener("reduceMotionChanged", value => { changed = true; play(value); });
+    AccessibilityInfo.isReduceMotionEnabled().then(value => { if (mounted && !changed) play(value); }).catch(() => {});
+    return () => { mounted = false; sub.remove(); wave.stopAnimation(); };
+  }, [role, wave]);
+  const short = height < 520;
+  return <SafeAreaView style={s.safe}><View pointerEvents="none" style={StyleSheet.absoluteFill}><Animated.View style={[s.orb,{transform:[{translateX:wave.interpolate({inputRange:[0,1],outputRange:[0,26]})}]}]}/><View style={s.mint}/></View><View style={[s.page,short && {gap:5,paddingVertical:5}]}>
+    <View style={s.header}>{role && <Pressable accessibilityRole="button" accessibilityLabel="Back to roles" onPress={() => router.canGoBack() ? router.back() : router.replace("/welcome")} style={[s.back,{position:"absolute",left:0,zIndex:1}]}><Text style={s.backText}>← Back</Text></Pressable>}<Brand size={short ? 64 : height < 680 ? 88 : 112}/></View>
+    {!role && !short && <View style={[s.foodHero,{height:height < 680 ? 106 : 146}]}>
+      <View style={s.heroCopy}><Text style={s.heroTitle}>Your campus,{"\n"}served fresh.</Text>{height >= 640 && <Text style={s.heroBody}>From canteen lunches to hostel snack breaks.</Text>}</View>
+      <View style={s.foodArt}><Image accessibilityLabel="Vegetable momos" source={require("../assets/welcome-momos.jpg")} style={s.mainDish}/><Image accessibilityLabel="Grilled cheese sandwich" source={require("../assets/welcome-sandwich.jpg")} style={s.smallDish}/></View>
+    </View>}
+    <Text accessibilityRole="header" style={[s.title, {fontSize:short ? 24 : role ? 34 : 27}]}>{role ? profiles[role].name + " account" : "How will you use Campus Drop?"}</Text>
+    <View style={[s.cards, role && short && {minHeight:100}, short && width > height && {flexDirection:"row"}]}>
+      {role === "STUDENT" ? <View style={s.studentScene}>
+        <Animated.Image accessibilityLabel="Illustrated college friends sharing pizza, momos and samosas" source={require("../assets/campus-friends.jpg")} resizeMode="cover" style={{width:"100%",height:"100%",transform:[{scale:wave.interpolate({inputRange:[0,1],outputRange:[1,1.035]})}]}}/>
+      </View> : role === "VENDOR" ? <View style={s.vendorScene}>
+        <Animated.Image accessibilityLabel="Campus vendor" source={require("../assets/campus-kiosk.jpg")} resizeMode="cover" style={{position:"absolute",width:"100%",height:"106%",transform:[{translateY:wave.interpolate({inputRange:[0,1],outputRange:[0,-4]})}]}}/>
+        <Animated.View style={[s.ticket,{transform:[{translateY:wave.interpolate({inputRange:[0,1],outputRange:[4,-3]})}]}]}>
+          <Text style={s.ticketLabel}>SAMPLE ORDER</Text><Text style={s.ticketTitle}>Incoming order</Text>
+          <Text style={s.body}>2 × Samosa</Text><View style={s.rule}/><Text style={s.ticketLabel}>Order value</Text><Text style={s.amount}>₹60</Text>
+        </Animated.View>
+      </View> : choices.map(key => {
+        const profile = profiles[key];
+        const content = <><Animated.Image source={profile.art} accessibilityLabel={profile.name + " mascot"} resizeMode="contain" style={[s.image,{transform:[{translateY:wave.interpolate({inputRange:[0,1],outputRange:[0,key==="STUDENT"?-7:6]})}]}]}/><View style={s.copy}><Text style={s.name}>{profile.name}</Text><Text style={s.body}>{profile.detail}</Text></View>{!role && <Text style={s.arrow}>→</Text>}</>;
+        const style = [s.card, {backgroundColor:profile.tint}];
+        return <Pressable key={key} accessibilityRole="button" accessibilityLabel={"Continue as " + profile.name} onPress={() => router.push({pathname:"/welcome",params:{role:key}})} style={({pressed})=>[style,pressed && s.pressed]}>{content}</Pressable>;
+      })}
     </View>
-  </SafeAreaView>;
+    {role && <View style={s.actions}>{(["/login","/register"] as const).map(path => <Pressable key={path} accessibilityRole="button" onPress={()=>router.push({pathname:path,params:{role}})} style={({pressed})=>[s.action,path==="/login" && s.primary,pressed && s.pressed]}><Text style={[s.actionText,path==="/login" && {color:"white"}]}>{path==="/login"?"Log in":"Create account"}</Text></Pressable>)}</View>}
+  </View></SafeAreaView>;
 }
-
-const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#F8F9FC" },
-  page: { flex: 1, width: "100%", maxWidth: 1160, alignSelf: "center" },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
-  identity: { flexDirection: "row", alignItems: "center", gap: 8 },
-  wordmark: { color: "#172033", fontSize: 19, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold", letterSpacing: -.7 },
-  orange: { color: "#FF6B35" },
-  badge: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#EFEFE5", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 8 },
-  dot: { height: 5, width: 5, borderRadius: 3, backgroundColor: "#427258" },
-  badgeText: { color: "#53604E", fontSize: 10, fontWeight: "600", fontFamily: "PlusJakartaSans_600SemiBold" },
-  content: { flex: 1, minHeight: 0, paddingVertical: 16, width: "100%", maxWidth: 480, alignSelf: "center" },
-  contentWide: { flexDirection: "row", alignItems: "center", gap: 70, maxWidth: 1100, paddingVertical: 28 },
-  intro: { flexShrink: 0 },
-  introWide: { flex: 1 },
-  eyebrow: { color: "#92735E", fontSize: 9, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold", letterSpacing: 1.8, marginBottom: 10 },
-  headline: { fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold", color: "#172033", letterSpacing: -1.8 },
-  description: { color: "#737B8C", fontSize: 13, lineHeight: 20, marginTop: 10, maxWidth: 360 },
-  desktopNote: { color: "#92735E", fontSize: 12, lineHeight: 20, marginTop: 30 },
-  experience: { flex: 1, minHeight: 0, paddingTop: 18 },
-  experienceWide: { flex: 1, height: "100%", maxHeight: 600, paddingTop: 0 },
-  selector: { flexDirection: "row", backgroundColor: "#ECEDE7", padding: 4, borderRadius: 16, gap: 4 },
-  role: { flex: 1, minHeight: 44, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
-  selectedRole: { backgroundColor: "#FFFFFF", boxShadow: "0px 2px 6px rgba(25,39,62,0.07)" },
-  roleText: { fontSize: 13, fontWeight: "600", fontFamily: "PlusJakartaSans_600SemiBold", color: "#888078" },
-  selectedRoleText: { color: "#172033", fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" },
-  selectionDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: "#FF6B35" },
-  art: { flex: 1, minHeight: 0, borderRadius: 32, overflow: "hidden", alignItems: "center", justifyContent: "center" },
-  halo: { position: "absolute", width: 260, height: 260, borderRadius: 130, borderWidth: 36, opacity: .65 },
-  artLabel: { position: "absolute", top: 16, left: 18, flexDirection: "row", alignItems: "center", gap: 6, zIndex: 1 },
-  artLabelText: { fontSize: 8, letterSpacing: 1.1, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" },
-  illustration: { width: "84%", height: "80%", maxHeight: 320 },
-  caption: { position: "absolute", bottom: 16, color: "#59677D", fontSize: 10, fontWeight: "600", fontFamily: "PlusJakartaSans_600SemiBold", textAlign: "center" },
-  actions: { flexShrink: 0 },
-  primary: { minHeight: 52, borderRadius: 18, paddingHorizontal: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  primaryText: { color: "#FFFFFF", fontSize: 14, fontWeight: "700", fontFamily: "PlusJakartaSans_700Bold" },
-  arrow: { color: "#FFFFFF", fontSize: 23 },
-  signup: { minHeight: 44, alignItems: "center", justifyContent: "center" },
-  signupText: { color: "#85817D", fontSize: 12 },
-  signupAccent: { color: "#172033", fontWeight: "700", fontFamily: "PlusJakartaSans_700Bold" },
-  pressed: { opacity: .78, transform: [{ scale: .985 }] },
-  footer: { flexDirection: "row", alignItems: "center", gap: 10, paddingTop: 4 },
-  footerLine: { flex: 1, height: 1, backgroundColor: "#E7DED4" },
-  footerText: { color: "#A1978C", fontSize: 8, letterSpacing: 1.1, textAlign: "center" },
+const s=StyleSheet.create({
+  foodHero:{flexDirection:"row",backgroundColor:"#35273D",borderRadius:24,overflow:"hidden",alignItems:"center"},
+  heroCopy:{flex:1,paddingLeft:18,paddingRight:4,gap:6},heroTitle:{fontFamily:"PlusJakartaSans_800ExtraBold",fontSize:25,lineHeight:29,color:"#FFF8ED",letterSpacing:-1},heroBody:{fontFamily:"Inter_400Regular",fontSize:12,lineHeight:17,color:"#EEDFE4"},
+  foodArt:{width:"43%",height:"100%",overflow:"hidden"},mainDish:{position:"absolute",width:"106%",height:"95%",top:-8,right:-10,borderRadius:70,borderWidth:3,borderColor:"#E1B886"},smallDish:{position:"absolute",width:"56%",height:"49%",bottom:-3,left:0,borderRadius:36,borderWidth:3,borderColor:"#FFF4DC"},
+  studentScene:{flex:1,alignSelf:"center",aspectRatio:1,maxWidth:"100%",borderRadius:26,overflow:"hidden",backgroundColor:"#F0EAFE"},
+  vendorScene:{flex:1,alignItems:"center",justifyContent:"center",backgroundColor:"#D9EFE4",borderRadius:26,overflow:"hidden"},
+  ticket:{position:"absolute",bottom:10,right:10,backgroundColor:"#FFFEFA",padding:10,borderRadius:14,gap:2,boxShadow:"0px 6px 15px rgba(33,70,53,.12)"},
+  ticketLabel:{fontFamily:"PlusJakartaSans_700Bold",fontSize:10,color:"#3F6657",letterSpacing:.5},ticketTitle:{fontFamily:"PlusJakartaSans_800ExtraBold",fontSize:18,color:"#233F34"},rule:{borderTopWidth:1,borderColor:"#CCDAD2",marginVertical:4},amount:{fontFamily:"PlusJakartaSans_800ExtraBold",fontSize:24,color:"#23553F"},
+  orb:{position:"absolute",width:390,height:390,borderRadius:195,top:-155,right:-135,backgroundColor:"#F0DCF1"},mint:{position:"absolute",width:320,height:320,borderRadius:160,bottom:-135,left:-110,backgroundColor:"#FFE8CA"},
+  safe:{flex:1,backgroundColor:colors.bg},page:{flex:1,width:"100%",maxWidth:620,alignSelf:"center",padding:20,justifyContent:"center",gap:16},
+  header:{flexDirection:"row",justifyContent:"center",alignItems:"center",width:"100%"},wordmark:{fontFamily:"PlusJakartaSans_800ExtraBold",fontSize:19,color:colors.ink},
+  title:{fontFamily:"PlusJakartaSans_800ExtraBold",fontSize:38,letterSpacing:-1.4,color:colors.ink},
+  cards:{flexShrink:1,flexGrow:1,flexBasis:0,maxHeight:420,gap:12},card:{flex:1,flexDirection:"row",alignItems:"center",borderRadius:28,boxShadow:"0px 6px 18px rgba(55,39,94,0.09)",borderWidth:1,borderColor:"rgba(255,255,255,0.9)",overflow:"hidden",paddingHorizontal:12,gap:10},
+  image:{width:"38%",height:"99%"},copy:{flex:1,gap:5},name:{fontFamily:"PlusJakartaSans_700Bold",fontSize:21,color:colors.ink},body:{fontFamily:"Inter_400Regular",fontSize:13,lineHeight:19,color:colors.muted},
+  arrow:{fontSize:19,color:"#49335D",width:32,height:32,lineHeight:30,textAlign:"center",borderRadius:16,backgroundColor:"#FFFFFF"},back:{minWidth:76,height:44,alignItems:"center",justifyContent:"center",backgroundColor:"white",borderRadius:14},backText:{fontSize:14,color:colors.ink},
+  actions:{gap:8},action:{minHeight:48,borderWidth:1,borderColor:colors.line,borderRadius:14,alignItems:"center",justifyContent:"center",backgroundColor:"white"},primary:{backgroundColor:colors.green,borderColor:colors.green},actionText:{fontFamily:"PlusJakartaSans_700Bold",color:colors.ink},pressed:{opacity:.82},
 });

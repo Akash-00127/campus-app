@@ -1,3 +1,4 @@
+import { PasswordEye } from "./password-eye";
 import { useEffect, useRef, useState } from "react";
 import { router, useLocalSearchParams } from "expo-router";
 import {
@@ -18,7 +19,7 @@ const copy: Record<RegistrationStep, { title: string; subtitle: string; label: s
   account: { title: "Your account details.", subtitle: "Add your email, mobile number and password.", label: "Account" },
   verify: { title: "Check your phone.", subtitle: "Enter the code we sent to your mobile.", label: "Verify mobile" },
 };
-const fonts = { regular: "PlusJakartaSans_400Regular", medium: "PlusJakartaSans_500Medium", bold: "PlusJakartaSans_700Bold", extra: "PlusJakartaSans_800ExtraBold" };
+const fonts = { regular: "Inter_400Regular", medium: "Inter_500Medium", bold: "PlusJakartaSans_700Bold", extra: "PlusJakartaSans_800ExtraBold" };
 
 function Input({ label, compact, ...props }: TextInputProps & { label: string; compact: boolean }) {
   const [focused, setFocused] = useState(false);
@@ -124,7 +125,7 @@ export function RegistrationScreen() {
       setDetails(current => ({ ...current, otp: "" }));
       return;
     }
-    if (stepIndex === 0) router.replace("/welcome");
+    if (stepIndex === 0) router.canGoBack() ? router.back() : router.replace({ pathname: "/welcome", params: { role } });
     else setStepIndex(current => current - 1);
   }
   async function sendCode() {
@@ -195,7 +196,7 @@ export function RegistrationScreen() {
         </View>}
         <View style={[r.card, compact && r.cardCompact, tight && { padding: 12 }]}>
           <View style={r.progressHeader}>
-            <Pressable accessibilityRole="button" accessibilityLabel={stepIndex ? "Previous step" : "Back to role selection"} disabled={busy || !!createdAccount.current} onPress={back} style={r.back}><Text style={r.backText}>‹</Text></Pressable>
+            <Pressable accessibilityRole="button" accessibilityLabel={stepIndex ? "Previous step" : "Back to account options"} disabled={busy || !!createdAccount.current} onPress={back} style={r.back}><Text style={r.backText}>← Back</Text></Pressable>
             <Text style={r.stepLabel}>{meta.label}</Text><Text style={r.count}>{String(stepIndex + 1).padStart(2, "0")} <Text style={{ color: "#A3ABA8" }}>/ {String(steps.length).padStart(2, "0")}</Text></Text>
           </View>
           <View accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: steps.length, now: stepIndex + 1 }} style={[r.progress, tight && { marginTop: 8, marginBottom: 12 }]}>
@@ -220,7 +221,7 @@ export function RegistrationScreen() {
             </>}
             {step === "account" && !otpRequested && <>
               <Input {...fieldProps} label="Email address" value={details.email} onChangeText={value => update("email", value)} placeholder="you@university.edu" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} autoComplete="email" maxLength={254} />
-              <View style={r.passwordLabel}><Text style={r.textLink}>At least 8 characters</Text><Pressable accessibilityRole="button" accessibilityLabel={showPassword ? "Hide password" : "Show password"} onPress={() => setShowPassword(current => !showPassword)} hitSlop={8}><Text style={r.textLink}>{showPassword ? "Hide" : "Show"}</Text></Pressable></View>
+              <View style={r.passwordLabel}><Text style={r.textLink}>At least 8 characters</Text><PasswordEye visible={showPassword} onToggle={()=>setShowPassword(current=>!current)}/></View>
               <Input {...fieldProps} label="Create password" value={details.password} onChangeText={value => update("password", value)} placeholder="Create a strong password" secureTextEntry={!showPassword} autoCapitalize="none" autoComplete="new-password" />
               <Input {...fieldProps} label="Mobile number · +91" value={details.phone} onChangeText={value => update("phone", value.replace(/\D/g, "").slice(0, 10))} keyboardType="phone-pad" placeholder="9876543210" maxLength={10} autoComplete="tel-national" />
             </>}
@@ -237,7 +238,6 @@ export function RegistrationScreen() {
             </Pressable>
           </View>
         </View>
-        {!keyboard && !tight && <Pressable accessibilityRole="button" disabled={busy} onPress={() => router.replace({ pathname: "/login", params: { role } })} style={r.login}><Text style={r.loginText}>Already have an account? <Text style={r.textLink}>Log in ↗</Text></Text></Pressable>}
       </View>
     </KeyboardAvoidingView>
     <Modal visible={picker !== null} animationType="slide" onRequestClose={() => { Keyboard.dismiss(); setPicker(null); }}>
@@ -263,7 +263,7 @@ const r = StyleSheet.create({
   roleBadge: { backgroundColor: "#EBEDE5", paddingHorizontal: 10, paddingVertical: 8, borderRadius: 20 }, roleText: { fontFamily: fonts.bold, fontSize: 8, letterSpacing: 0.8, color: "#53665A" },
   card: { flex: 1, maxHeight: 760, backgroundColor: "white", borderWidth: 1, borderColor: colors.line, borderRadius: 28, padding: 24, boxShadow: "0px 8px 32px rgba(23,47,59,0.05)" },
   cardCompact: { padding: 18, borderRadius: 24 }, progressHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
-  back: { width: 36, height: 36, borderRadius: 12, backgroundColor: "#F4F4EF", alignItems: "center", justifyContent: "center" }, backText: { fontSize: 29, lineHeight: 31, color: colors.ink },
+  back: { minWidth:76,height:44, borderRadius: 12, backgroundColor: "#F4F4EF", alignItems: "center", justifyContent: "center" }, backText: { fontSize:14, lineHeight: 31, color: colors.ink },
   stepLabel: { flex: 1, color: colors.ink, fontFamily: fonts.bold, fontSize: 12 }, count: { color: colors.green, fontFamily: fonts.bold, fontSize: 12 },
   progress: { flexDirection: "row", gap: 5, marginTop: 16, marginBottom: 22 }, segment: { flex: 1, height: 4, borderRadius: 4, backgroundColor: "#ECEEE7" }, segmentActive: { backgroundColor: colors.green },
   heading: { marginBottom: 24 }, title: { color: colors.ink, fontFamily: fonts.extra, fontSize: 29, lineHeight: 36, letterSpacing: -1 }, subtitle: { color: colors.muted, fontFamily: fonts.regular, fontSize: 12, lineHeight: 19, marginTop: 8 },

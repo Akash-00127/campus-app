@@ -16,15 +16,15 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Children, createContext, isValidElement, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { focusedScrollOffset } from "./keyboard";
 export const colors = {
-  ink: "#172033",
-  green: "#FF6B35",
-  lime: "#FFF1EB",
-  bg: "#F8F9FC",
-  muted: "#737B8C",
-  line: "#E7EAF0",
-  navy: "#172033",
+  ink: "#25223B",
+  green: "#5643A6",
+  lime: "#ECE6FF",
+  bg: "#F8F7FF",
+  muted: "#625D73",
+  line: "#E4E0EF",
+  navy: "#25223B",
   surface: "#FFFFFF",
-  orange: "#FFC857",
+  orange: "#F5C687",
   success: "#16A36A",
 };
 export const money = (n: number) => `₹${(n / 100).toFixed(2)}`;
@@ -122,14 +122,14 @@ export const s = StyleSheet.create({
     color: colors.ink,
     letterSpacing: -1,
   },
-  muted: { fontSize: 13, lineHeight: 22, color: colors.muted, marginTop: 7 },
+  muted: { fontFamily: "Inter_400Regular", fontSize: 13, lineHeight: 22, color: colors.muted, marginTop: 7 },
   label: {
     fontSize: 12,
     fontWeight: "700", fontFamily: "PlusJakartaSans_700Bold",
     color: colors.muted,
     marginBottom: 7,
   },
-  input: {
+  input: { fontFamily: "Inter_400Regular",
     borderWidth: 1,
     borderColor: colors.line,
     borderRadius: 15,
@@ -185,7 +185,7 @@ export const s = StyleSheet.create({
     overflow: "hidden",
   },
   notice: {
-    backgroundColor: "#FFF4EF",
+    backgroundColor: "#F3EFFF",
     borderWidth: 1,
     borderColor: "#FFD9CA",
     padding: 16,
@@ -221,11 +221,11 @@ export const s = StyleSheet.create({
   dropdownItem: { paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "#EDF0E9" },
   dropdownMeta: { color: colors.muted, fontSize: 12, marginTop: 3 },
   dropdownEmpty: { color: colors.muted, padding: 14, textAlign: "center" },
-  selection: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#FFF4EF", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, marginTop: -5, marginBottom: 14 },
+  selection: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#F3EFFF", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, marginTop: -5, marginBottom: 14 },
   selectionText: { color: colors.ink, flex: 1, fontSize: 12, fontWeight: "700", fontFamily: "PlusJakartaSans_700Bold", marginRight: 8 },
   selectionAction: { color: colors.green, fontSize: 12, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" },
   passwordToggle: { color: colors.green, fontSize: 12, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold", padding: 5 },
-  dropdownButton: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: "#FFF4EF", borderWidth: 1, borderColor: "#FFD9CA" },
+  dropdownButton: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: "#F3EFFF", borderWidth: 1, borderColor: "#FFD9CA" },
   dropdownButtonOpen: { backgroundColor: colors.green, borderColor: colors.green },
   dropdownChevron: { color: colors.green, fontSize: 20, fontWeight: "900", fontFamily: "PlusJakartaSans_800ExtraBold", lineHeight: 23, marginTop: -3 },
   dropdownChevronOpen: { color: "white" },

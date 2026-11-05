@@ -176,7 +176,7 @@ export const universities = () => request<University[]>("/universities", undefin
 export const campuses = (id: string) =>
   request<Campus[]>(`/universities/${id}/campuses`);
 export const login = (email: string, password: string) =>
-  request<UserSession>("/auth/login", undefined, "POST", { email, password });
+  request<UserSession>("/auth/login", undefined, "POST", { ...passwordResetIdentity(email), password });
 export const register = (body: unknown, vendor = false) =>
   request<UserSession>(
     vendor ? "/auth/vendor-register" : "/auth/register",
@@ -201,11 +201,12 @@ export const requestPhoneChangeOtp = (phone: string, token: string) =>
 
 
 
-const passwordResetIdentity = (identifier: string) =>
-  /^\+?[0-9]{10,15}$/.test(identifier.trim())
-    ? { phone: identifier.trim() }
-    : { email: identifier.trim() };
+const passwordResetIdentity = (identifier: string) => {
+  const value = identifier.trim();
+  const phone = value.replace(/[\s()-]/g, "").replace(/^\+91(?=\d{10}$)/, "");
+  return /^\d{10}$/.test(phone) ? {phone} : {email:value.toLowerCase()};
+};
 export const requestPasswordReset = (identifier: string) =>
-  request<{ message: string; demoOtp?: string }>("/auth/password-reset/request", undefined, "POST", passwordResetIdentity(identifier));
-export const confirmPasswordReset = (identifier: string, otp: string, newPassword: string) =>
-  request<{ message: string }>("/auth/password-reset/confirm", undefined, "POST", { ...passwordResetIdentity(identifier), otp, newPassword });
+  request<{ message: string; challenge:string; demoOtp?: string }>("/auth/password-reset/request", undefined, "POST", passwordResetIdentity(identifier));
+export const confirmPasswordReset = (identifier: string, otp: string, newPassword: string, challenge: string) =>
+  request<{ message: string }>("/auth/password-reset/confirm", undefined, "POST", { ...passwordResetIdentity(identifier), otp, newPassword, challenge });
