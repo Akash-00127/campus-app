@@ -7,6 +7,7 @@ export default function Layout() {
   if (!ready) return <Loading />;
   if (!session) return <Redirect href="/welcome" />;
   const vendor = session.user.role === "VENDOR";
+  const cartCount = cart.reduce((count, line) => count + line.quantity, 0);
   return (
     <Tabs
       screenOptions={{
@@ -15,22 +16,22 @@ export default function Layout() {
         tabBarInactiveTintColor: colors.muted,
         tabBarStyle: {
           position: "absolute",
-          marginHorizontal: 16,
+          marginHorizontal: 18,
           bottom: 14,
           height: 74,
-          borderRadius: 26,
-          backgroundColor: "rgba(255,255,255,0.98)",
-          borderTopWidth: 0,
-          shadowColor: "#091A41",
-          shadowOpacity: 0.13,
-          shadowOffset: { width: 0, height: 8 },
-          shadowRadius: 18,
-          elevation: 12,
+          borderRadius: 24,
+          backgroundColor: "#FFFFFF",
+          borderTopWidth: 1,
+          borderColor: colors.line,
+          shadowColor: colors.navy,
+          shadowOpacity: 0.12,
+          shadowOffset: { width: 0, height: 7 },
+          shadowRadius: 20,
+          elevation: 10,
           paddingBottom: 10,
           paddingTop: 8,
         },
-        tabBarLabelStyle: { fontWeight: "700", fontFamily: "PlusJakartaSans_700Bold", fontSize: 10 },
-        tabBarBadgeStyle: { backgroundColor: colors.green, color: "white", fontSize: 10 },
+        tabBarLabelStyle: { fontWeight: "700", fontFamily: "PlusJakartaSans_700Bold", fontSize: 10, letterSpacing: 0.15 },
       }}
     >
       <Tabs.Screen
@@ -41,11 +42,11 @@ export default function Layout() {
         }}
       />
       <Tabs.Screen
-        name="cart"
+        name="search"
         options={{
-          title: vendor ? "Products" : "Cart",
-          tabBarBadge: !vendor&&cart.length ? cart.reduce((n,l)=>n+l.quantity,0):undefined,
-          tabBarIcon: ({ color, focused }) => <NavIcon name="cart" color={color} focused={focused} />,
+          title: "Search",
+          href: vendor ? null : undefined,
+          tabBarIcon: ({ color, focused }) => <NavIcon name="search" color={color} focused={focused} />,
         }}
       />
       <Tabs.Screen
@@ -53,6 +54,13 @@ export default function Layout() {
         options={{
           title: "Orders",
           tabBarIcon: ({ color, focused }) => <NavIcon name="orders" color={color} focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="cart"
+        options={{
+          title: vendor ? "Products" : "Cart",
+          tabBarIcon: ({ color, focused }) => <NavIcon name="cart" color={color} focused={focused} count={vendor ? 0 : cartCount} />,
         }}
       />
       <Tabs.Screen

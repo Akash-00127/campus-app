@@ -2,8 +2,9 @@ import { newCheckoutKey as newKey } from "../../src/checkout-key";
 import * as SecureStore from "../../src/secure";
 import { useCallback, useState, useRef, useEffect } from "react";
 import { useFocusEffect, router } from "expo-router";
-import { Alert, Pressable, Text, View } from "react-native";
+import { Alert, Image, Pressable, StyleSheet, Text, View } from "react-native";
 import {
+  mediaUrl,
   request,
   type Address,
   type Order,
@@ -11,7 +12,7 @@ import {
   type Profile,
 } from "../../src/api";
 import { useSession } from "../../src/session";
-import { EmptyState, Button, Field, Notice, Screen, Title, money, s } from "../../src/ui";
+import { EmptyState, Button, Field, Notice, Screen, Title, colors, money, s } from "../../src/ui";
 type Quote = { totalPaise: number; discountPaise: number; subtotalPaise: number; deliveryFeePaise: number; platformFeePaise: number };
 export default function Cart() {
   const { session, cart, quantity, note, clear, replaceCart } = useSession();
@@ -292,33 +293,12 @@ export default function Cart() {
         </>
       ) : cart.length ? (
         <>
-          <Text style={s.badge}>{cart[0].product.vendor.name}</Text>
+          <View style={c.vendorPill}><View style={c.vendorDot} /><Text style={c.vendorPillText}>ONE DELIVERY FROM {cart[0].product.vendor.name.toUpperCase()}</Text></View>
           <View style={{ marginTop: 18 }}>
             {cart.map((l) => (
-              <View style={s.card} key={l.product.id}>
-                <Text style={s.h3}>{l.product.name}</Text>
-                <View style={s.row}>
-                  <Text style={s.price}>
-                    {money(l.product.pricePaise * l.quantity)}
-                  </Text>
-                  <View style={s.row}>
-                    <Button
-                      secondary
-                      disabled={busy}
-                      onPress={() => quantity(l.product.id, l.quantity - 1)}
-                    >
-                      −
-                    </Button>
-                    <Text>{l.quantity}</Text>
-                    <Button
-                      secondary
-                      disabled={busy}
-                      onPress={() => quantity(l.product.id, l.quantity + 1)}
-                    >
-                      +
-                    </Button>
-                  </View>
-                </View>
+              <View style={c.line} key={l.product.id}>
+                {l.product.image ? <Image source={{ uri: mediaUrl(l.product.image) }} style={c.lineImage} /> : <View style={[c.lineImage, c.linePlaceholder]}><Text style={c.lineLetter}>{l.product.name.slice(0, 1)}</Text></View>}
+                <View style={c.lineCopy}><View style={c.lineHeading}><View style={{ flex: 1 }}><Text numberOfLines={2} style={c.lineName}>{l.product.name}</Text><Text style={c.lineVendor}>{l.product.vendor.name}</Text></View><Pressable accessibilityRole="button" accessibilityLabel={`Remove ${l.product.name}`} onPress={() => quantity(l.product.id, 0)} style={c.remove}><Text style={c.removeText}>×</Text></Pressable></View><View style={c.lineBottom}><Text style={c.linePrice}>{money(l.product.pricePaise * l.quantity)}</Text><View style={c.stepper}><Pressable accessibilityRole="button" disabled={busy} onPress={() => quantity(l.product.id, l.quantity - 1)} style={c.step}><Text style={c.stepText}>−</Text></Pressable><Text style={c.stepValue}>{l.quantity}</Text><Pressable accessibilityRole="button" disabled={busy} onPress={() => quantity(l.product.id, l.quantity + 1)} style={c.step}><Text style={c.stepText}>+</Text></Pressable></View></View></View>
               </View>
             ))}
           </View>
@@ -331,7 +311,7 @@ export default function Cart() {
               onPress={() => setSelected(a.id)}
               style={[
                 s.card,
-                selected === a.id && { borderColor: "#236348", borderWidth: 2 },
+                selected === a.id && { borderColor: colors.green, borderWidth: 2 },
               ]}
             >
               <Text style={s.h3}>
@@ -387,4 +367,10 @@ export default function Cart() {
     </Screen>
   );
 }
+
+const c = StyleSheet.create({
+  vendorPill: { alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: 7, backgroundColor: colors.lime, borderRadius: 20, paddingHorizontal: 11, paddingVertical: 7, borderWidth: 1, borderColor: "#FFD4C4" },
+  vendorDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.green }, vendorPillText: { color: colors.green, fontSize: 8, letterSpacing: .7, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" },
+  line: { flexDirection: "row", gap: 13, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 20, padding: 12, marginBottom: 12, shadowColor: colors.navy, shadowOpacity: .04, shadowRadius: 12, shadowOffset: { width: 0, height: 5 } }, lineImage: { width: 92, height: 102, borderRadius: 15, backgroundColor: "#EEF0F4" }, linePlaceholder: { alignItems: "center", justifyContent: "center" }, lineLetter: { color: colors.green, fontSize: 30, fontWeight: "800" }, lineCopy: { flex: 1, justifyContent: "space-between" }, lineHeading: { flexDirection: "row", alignItems: "flex-start", gap: 6 }, lineName: { color: colors.ink, fontSize: 14, lineHeight: 19, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" }, lineVendor: { color: colors.muted, fontSize: 9, marginTop: 4 }, remove: { width: 25, height: 25, borderRadius: 9, backgroundColor: colors.bg, alignItems: "center", justifyContent: "center" }, removeText: { color: colors.muted, fontSize: 18, lineHeight: 20 }, lineBottom: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" }, linePrice: { color: colors.ink, fontSize: 15, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" }, stepper: { flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: "#FFD1C0", backgroundColor: colors.lime, borderRadius: 11, overflow: "hidden" }, step: { width: 29, height: 29, alignItems: "center", justifyContent: "center" }, stepText: { color: colors.green, fontSize: 17, fontWeight: "800" }, stepValue: { minWidth: 22, textAlign: "center", color: colors.ink, fontSize: 11, fontWeight: "800" },
+});
 

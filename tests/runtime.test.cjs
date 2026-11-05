@@ -57,8 +57,10 @@ test('registration catches invalid contact details before requesting verificatio
   assert.match(registration.registrationError('identity',{...validRegistration,campusId:''},false),/campus/);
 });
 test('registration stays short with only essential student and vendor steps',()=>{
-  assert.deepEqual(Array.from(registration.registrationSteps(false)),['identity','campus','account','verify']);
-  assert.deepEqual(Array.from(registration.registrationSteps(true)),['identity','campus','shop','account','verify']);
+  // Campus selection is part of identity and phone verification is completed
+  // inside the account step, keeping the mobile flow intentionally short.
+  assert.deepEqual(Array.from(registration.registrationSteps(false)),['identity','account']);
+  assert.deepEqual(Array.from(registration.registrationSteps(true)),['identity','shop','account']);
 });
 test('vendor registration requires useful shop details and pickup location',()=>{
   assert.match(registration.registrationError('shop',{...validRegistration,shopName:' '},true),/name/);

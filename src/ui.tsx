@@ -13,18 +13,19 @@ import {
   type TextInputProps,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Children, createContext, isValidElement, useCallback, useContext, useEffect, useRef, type ReactNode } from "react";
+import { Children, createContext, isValidElement, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { focusedScrollOffset } from "./keyboard";
 export const colors = {
-  ink: "#172B35",
-  green: "#D94E2C",
-  lime: "#FFF0E8",
-  bg: "#F8F7F3",
-  muted: "#6C7880",
-  line: "#E7E9E5",
-  navy: "#172F3B",
+  ink: "#172033",
+  green: "#FF6B35",
+  lime: "#FFF1EB",
+  bg: "#F8F9FC",
+  muted: "#737B8C",
+  line: "#E7EAF0",
+  navy: "#172033",
   surface: "#FFFFFF",
-  orange: "#F59E0B",
+  orange: "#FFC857",
+  success: "#16A36A",
 };
 export const money = (n: number) => `₹${(n / 100).toFixed(2)}`;
 const FocusContext=createContext<(input:ComponentRef<typeof TextInput>|null)=>void>(()=>{});
@@ -80,10 +81,11 @@ export function Button({
     </Pressable>
   );
 }
-export function Field({label,onFocus,style,right,...props}:TextInputProps&{label:string;right?:ReactNode}){
+export function Field({label,onFocus,onBlur,style,right,...props}:TextInputProps&{label:string;right?:ReactNode}){
  const ref=useRef<ComponentRef<typeof TextInput>>(null);const focus=useContext(FocusContext);
+ const [focused,setFocused]=useState(false);
  const phone = props.keyboardType === "phone-pad";
- return <View style={{marginBottom:14}}><Text style={s.label}>{label}</Text><View>{phone && <Text style={{position:"absolute",left:15,top:16,zIndex:1,color:colors.ink,fontSize:14,fontWeight:"700", fontFamily: "PlusJakartaSans_700Bold"}}>+91</Text>}<TextInput ref={ref} accessibilityLabel={label} placeholderTextColor="#8A948B" style={[s.input,!!right&&{paddingRight:74},props.multiline&&{minHeight:90,textAlignVertical:'top'},phone&&{paddingLeft:62},style]} {...props} maxLength={phone ? 10 : props.maxLength} onChangeText={phone ? value => props.onChangeText?.(value.replace(/\D/g, "").slice(0, 10)) : props.onChangeText} onFocus={event=>{focus(ref.current);onFocus?.(event)}}/>{right&&<View style={s.fieldRight}>{right}</View>}</View></View>
+ return <View style={{marginBottom:14}}><Text style={s.label}>{label}</Text><View>{phone && <Text style={{position:"absolute",left:15,top:16,zIndex:1,color:colors.ink,fontSize:14,fontWeight:"700", fontFamily: "PlusJakartaSans_700Bold"}}>+91</Text>}<TextInput ref={ref} accessibilityLabel={label} placeholderTextColor="#8A948B" selectionColor={colors.green} cursorColor={colors.green} style={[s.input,focused&&s.inputFocused,!!right&&{paddingRight:74},props.multiline&&{minHeight:90,textAlignVertical:'top'},phone&&{paddingLeft:62},style]} {...props} maxLength={phone ? 10 : props.maxLength} onChangeText={phone ? value => props.onChangeText?.(value.replace(/\D/g, "").slice(0, 10)) : props.onChangeText} onFocus={event=>{setFocused(true);focus(ref.current);onFocus?.(event)}} onBlur={event=>{setFocused(false);onBlur?.(event)}}/>{right&&<View style={s.fieldRight}>{right}</View>}</View></View>
 }
 export function Notice({ text }: { text: string }) {
   return (
@@ -103,7 +105,7 @@ export function EmptyState({ symbol, title, description }: { symbol: string; tit
   </View>;
 }
 export const s = StyleSheet.create({
-  empty: { alignItems: "center", paddingHorizontal: 22, paddingVertical: 42, backgroundColor: "white", borderRadius: 28, borderWidth: 1, borderColor: colors.line, marginVertical: 16 },
+  empty: { alignItems: "center", paddingHorizontal: 22, paddingVertical: 42, backgroundColor: colors.surface, borderRadius: 24, borderWidth: 1, borderColor: colors.line, marginVertical: 16 },
   emptyIcon: { width: 80, height: 80, borderRadius: 28, backgroundColor: colors.lime, alignItems: "center", justifyContent: "center", marginBottom: 10 },
   safe: { flex: 1, backgroundColor: colors.bg },
   page: { padding: 22, paddingBottom: 116, width: "100%", maxWidth: 760, alignSelf: "center" },
@@ -130,33 +132,34 @@ export const s = StyleSheet.create({
   input: {
     borderWidth: 1,
     borderColor: colors.line,
-    borderRadius: 16,
+    borderRadius: 15,
     padding: 15,
     backgroundColor: "#FFFFFF",
     color: colors.ink,
     fontSize: 14,
   },
+  inputFocused: { borderColor: colors.green, borderWidth: 1.5, backgroundColor: colors.surface, shadowColor: colors.green, shadowOpacity: .08, shadowRadius: 8, shadowOffset: { width: 0, height: 3 } },
   fieldRight: { position: "absolute", right: 12, top: 0, bottom: 0, justifyContent: "center" },
   button: {
     minHeight: 54,
     justifyContent: "center",
     paddingVertical: 16,
     paddingHorizontal: 18,
-    borderRadius: 16,
+    borderRadius: 15,
     backgroundColor: colors.green,
     alignItems: "center",
     marginTop: 8,
   },
-  buttonText: { color: "white", fontWeight: "900", fontFamily: "PlusJakartaSans_800ExtraBold", fontSize: 14 },
-  secondary: { backgroundColor: "white", borderWidth: 1, borderColor: colors.line },
+  buttonText: { color: "white", fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold", fontSize: 14, letterSpacing: 0.1 },
+  secondary: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, boxShadow: "0px 2px 8px rgba(23,32,51,0.035)" },
   card: {
     backgroundColor: "white",
     padding: 22,
-    borderRadius: 24,
-    boxShadow: "0px 4px 20px rgba(23,47,59,0.035)",
+    borderRadius: 22,
+    boxShadow: "0px 6px 22px rgba(23,32,51,0.055)",
     borderWidth: 1,
     borderColor: colors.line,
-    marginBottom: 18,
+    marginBottom: 16,
   },
   row: {
     flexDirection: "row",
@@ -182,7 +185,9 @@ export const s = StyleSheet.create({
     overflow: "hidden",
   },
   notice: {
-    backgroundColor: "#F0EFE8",
+    backgroundColor: "#FFF4EF",
+    borderWidth: 1,
+    borderColor: "#FFD9CA",
     padding: 16,
     borderRadius: 16,
     marginVertical: 12,
@@ -203,7 +208,7 @@ export const s = StyleSheet.create({
     borderColor: colors.line,
     marginRight: 8,
   },
-  selected: { backgroundColor: colors.lime, borderColor: "#E8B29F" },
+  selected: { backgroundColor: colors.lime, borderColor: "#FFB99F" },
   dropdown: {
     backgroundColor: "white",
     borderWidth: 1,
@@ -216,11 +221,11 @@ export const s = StyleSheet.create({
   dropdownItem: { paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "#EDF0E9" },
   dropdownMeta: { color: colors.muted, fontSize: 12, marginTop: 3 },
   dropdownEmpty: { color: colors.muted, padding: 14, textAlign: "center" },
-  selection: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#E9F2FF", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, marginTop: -5, marginBottom: 14 },
+  selection: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#FFF4EF", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, marginTop: -5, marginBottom: 14 },
   selectionText: { color: colors.ink, flex: 1, fontSize: 12, fontWeight: "700", fontFamily: "PlusJakartaSans_700Bold", marginRight: 8 },
   selectionAction: { color: colors.green, fontSize: 12, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" },
   passwordToggle: { color: colors.green, fontSize: 12, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold", padding: 5 },
-  dropdownButton: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: "#E9F2FF", borderWidth: 1, borderColor: "#B8D4FF" },
+  dropdownButton: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: "#FFF4EF", borderWidth: 1, borderColor: "#FFD9CA" },
   dropdownButtonOpen: { backgroundColor: colors.green, borderColor: colors.green },
   dropdownChevron: { color: colors.green, fontSize: 20, fontWeight: "900", fontFamily: "PlusJakartaSans_800ExtraBold", lineHeight: 23, marginTop: -3 },
   dropdownChevronOpen: { color: "white" },

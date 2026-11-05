@@ -1,9 +1,9 @@
 import { useCallback, useState } from "react";
 import { useFocusEffect, router } from "expo-router";
-import { Alert, Text, View } from "react-native";
+import { Alert, StyleSheet, Text, View } from "react-native";
 import { request, type Order, type Product } from "../../src/api";
 import { useSession } from "../../src/session";
-import { EmptyState, Button, Field, Notice, Screen, Title, money, s } from "../../src/ui";
+import { EmptyState, Button, Field, Notice, Screen, Title, colors, money, s } from "../../src/ui";
 const next: Record<string, [string, string]> = {
   PLACED: ["VENDOR_ACCEPTED", "Accept order"],
   VENDOR_ACCEPTED: ["PREPARING", "Start preparing"],
@@ -100,7 +100,8 @@ export default function Orders() {
         {orders.map((order) => {
           const detail = details[order.id]; const open = expanded === order.id; const cancelled = order.status.startsWith("CANCELLED");
           return <View style={s.card} key={order.id}>
-            <View style={s.row}><View><Text style={s.h3}>{order.code}</Text><Text style={s.muted}>Campus vendor</Text></View><Text style={[s.badge, { alignSelf: "flex-start" }]}>{order.status.replaceAll("_", " ")}</Text></View>
+            <View style={s.row}><View><Text style={s.h3}>{order.code}</Text><Text style={s.muted}>Campus delivery</Text></View><Text style={[s.badge, { alignSelf: "flex-start" }]}>{order.status.replaceAll("_", " ")}</Text></View>
+            {!cancelled && <OrderProgress status={order.status} />}
             <View style={{ marginTop: 13 }}>{order.items.map((item) => <View key={item.id} style={[s.row, { paddingVertical: 7 }]}><Text style={{ flex: 1, color: "#1E2030", fontWeight: "600" }}>{item.quantity} × {item.name}</Text><Text>{money(item.unitPricePaise * item.quantity)}</Text></View>)}</View>
             <View style={[s.row, { borderTopWidth: 1, borderTopColor: "#E9E6F1", marginTop: 9, paddingTop: 12 }]}><Text style={s.muted}>Order total</Text><Text style={s.price}>{money(order.totalPaise)}</Text></View>
             <Button secondary disabled={busy} onPress={() => void toggleDetails(order)}>{open ? "Hide order details" : "Show order details"}</Button>
@@ -281,5 +282,22 @@ export default function Orders() {
     </Screen>
   );
 }
+
+const trackingStages = [
+  ["Order placed", "We sent your order to the vendor"],
+  ["Vendor accepted", "Your order is confirmed"],
+  ["Preparing food", "The kitchen is working on it"],
+  ["Ready / out for delivery", "Your order is on the way"],
+  ["Delivered", "Enjoy your campus order"],
+] as const;
+
+function OrderProgress({ status }: { status: string }) {
+  const current = status === "DELIVERED" ? 4 : status === "OUT_FOR_DELIVERY" || status === "READY_FOR_PICKUP" ? 3 : status === "PREPARING" ? 2 : status === "VENDOR_ACCEPTED" ? 1 : 0;
+  return <View style={o.tracker}>{trackingStages.map(([title, subtitle], index) => <View key={title} style={o.trackRow}><View style={o.trackRail}>{index > 0 && <View style={[o.trackLine, index <= current && o.trackLineDone]} />}{index < trackingStages.length - 1 && <View style={[o.trackLineBottom, index < current && o.trackLineDone]} />}<View style={[o.trackDot, index <= current && o.trackDotDone, index === current && o.trackDotCurrent]}><Text style={[o.trackCheck, index <= current && o.trackCheckDone]}>{index < current ? "✓" : index + 1}</Text></View></View><View style={o.trackCopy}><Text style={[o.trackTitle, index <= current && o.trackTitleDone]}>{title}</Text>{index === current && <Text style={o.trackSubtitle}>{subtitle}</Text>}</View></View>)}</View>;
+}
+
+const o = StyleSheet.create({
+  tracker: { backgroundColor: colors.bg, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 12, marginTop: 16, marginBottom: 8 }, trackRow: { flexDirection: "row", minHeight: 42 }, trackRail: { width: 30, alignItems: "center" }, trackLine: { position: "absolute", top: -12, width: 2, height: 22, backgroundColor: colors.line }, trackLineBottom: { position: "absolute", top: 20, width: 2, bottom: -12, backgroundColor: colors.line }, trackLineDone: { backgroundColor: colors.green }, trackDot: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: "#C8CDD7", backgroundColor: colors.surface, alignItems: "center", justifyContent: "center", zIndex: 2 }, trackDotDone: { backgroundColor: colors.green, borderColor: colors.green }, trackDotCurrent: { shadowColor: colors.green, shadowOpacity: .25, shadowRadius: 7, shadowOffset: { width: 0, height: 2 } }, trackCheck: { color: colors.muted, fontSize: 8, fontWeight: "800" }, trackCheckDone: { color: "white" }, trackCopy: { flex: 1, paddingLeft: 6, paddingBottom: 9 }, trackTitle: { color: colors.muted, fontSize: 11, fontWeight: "700", fontFamily: "PlusJakartaSans_700Bold" }, trackTitleDone: { color: colors.ink }, trackSubtitle: { color: colors.muted, fontSize: 9, marginTop: 3 },
+});
 
 
