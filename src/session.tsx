@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {createContext,useContext,useEffect,useState,useRef,type ReactNode} from 'react';
 import {type Product,type Profile,type UserSession,request} from './api';
 export type Line={product:Product;quantity:number;note?:string};
-export type AccountSection="OVERVIEW"|"ACCOUNT"|"DETAILS"|"NOTIFICATIONS"|"SUPPORT"|"SECURITY";
+export type AccountSection="OVERVIEW"|"ACCOUNT"|"DETAILS"|"NOTIFICATIONS"|"HELP_CENTER"|"CONTACT_SUPPORT"|"SECURITY"|"PREFERENCES";
 type State={ready:boolean;session:UserSession|null;cart:Line[];saved:Product[];accountSection:AccountSection;setAccountSection:(section:AccountSection)=>void;signIn:(s:UserSession)=>Promise<void>;signOut:()=>Promise<void>;forget:()=>Promise<void>;add:(p:Product)=>boolean;replace:(p:Product)=>void;replaceCart:(lines:Line[])=>void;quantity:(id:string,n:number)=>void;note:(id:string,n:string)=>void;toggleSaved:(p:Product)=>void;clear:()=>void};
 const Context=createContext<State|null>(null);const KEY='campus-drop-session';
 export function SessionProvider({children}:{children:ReactNode}){

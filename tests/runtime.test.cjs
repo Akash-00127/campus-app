@@ -6,6 +6,100 @@ test('web and unconfigured builds never load the native push module',async()=>{f
 test('configured development build registers token and returns removable listener',async()=>{const s=setup({go:false});const listener=await s.api.enablePush('session');assert.equal(s.loads(),1);assert.equal(typeof listener.remove,'function');assert.equal(s.calls[0][0],'/notifications/devices');assert.equal(s.calls[0][3].token,'native-test-token')});
 test('denied notification permission never registers token',async()=>{const s=setup({go:false,granted:false});await assert.rejects(()=>s.api.enablePush('session'),/permission/);assert.equal(s.calls.length,0)});
 const {focusedScrollOffset}=load('src/keyboard.ts');
+test('discovery preferences persist per account and tolerate invalid stored values',async()=>{
+  const storage=new Map();
+  const helper=load('src/preference-storage.ts',{'@react-native-async-storage/async-storage':{getItem:async key=>storage.get(key)??null,setItem:async(key,value)=>{storage.set(key,value)}}});
+  await helper.writePreferences('student-a',{vegetarianByDefault:true,openNowByDefault:false});
+  assert.equal((await helper.readPreferences('student-a')).vegetarianByDefault,true);
+  assert.equal((await helper.readPreferences('student-b')).vegetarianByDefault,false);
+  storage.set('campus-preferences-student-b','not valid json');
+  assert.equal((await helper.readPreferences('student-b')).openNowByDefault,false);
+  storage.set('campus-preferences-student-b',JSON.stringify({vegetarianByDefault:'true',openNowByDefault:true}));
+  const safe=await helper.readPreferences('student-b');
+  assert.equal(safe.vegetarianByDefault,false);
+  assert.equal(safe.openNowByDefault,true);
+});
+test('discovery preference save reports storage failures',async()=>{
+  const helper=load('src/preference-storage.ts',{'@react-native-async-storage/async-storage':{setItem:async()=>{throw new Error('disk unavailable')}}});
+  await assert.rejects(()=>helper.writePreferences('student-a',{vegetarianByDefault:true,openNowByDefault:true}),/disk unavailable/);
+});
+test('dark appearance persists independently for each account',async()=>{
+  const storage=new Map();
+  const helper=load('src/theme-storage.ts',{'@react-native-async-storage/async-storage':{getItem:async key=>storage.get(key)??null,setItem:async(key,value)=>{storage.set(key,value)}}});
+  assert.equal(await helper.readDarkMode('student-a'),false);
+  await helper.writeDarkMode('student-a',true);
+  assert.equal(await helper.readDarkMode('student-a'),true);
+  assert.equal(await helper.readDarkMode('student-b'),false);
+  await helper.writeDarkMode('student-a',false);
+  assert.equal(await helper.readDarkMode('student-a'),false);
+});
+test('dark palette adapts surfaces and text while preserving accent colors',()=>{
+  const {darkThemeColor}=load('src/theme-colors.ts');
+  assert.equal(darkThemeColor('#FFFFFF','background'),'#18272C');
+  assert.equal(darkThemeColor('#EAE9E3','border'),'#304247');
+  assert.equal(darkThemeColor('#182C35','text'),'#F4F6F3');
+  assert.equal(darkThemeColor('#D94F32','text'),'#D94F32');
+  assert.equal(darkThemeColor('#1A292E','background'),'#1A292E');
+});
+test('dark appearance save reports storage failures',async()=>{
+  const helper=load('src/theme-storage.ts',{'@react-native-async-storage/async-storage':{getItem:async()=>null,setItem:async()=>{throw new Error('disk unavailable')}}});
+  await assert.rejects(()=>helper.writeDarkMode('student-a',true),/disk unavailable/);
+});
+test('web profile photos persist as data URLs and can be reset',async()=>{
+  const storage=new Map();
+  const mocks={
+    '@react-native-async-storage/async-storage':{
+      getItem:async key=>storage.get(key)??null,
+      setItem:async(key,value)=>{storage.set(key,value)},
+      removeItem:async key=>{storage.delete(key)},
+    },
+    'react-native':{Platform:{OS:'web'}},
+  };
+  const helper=load('src/profile-photo-storage.ts',mocks);
+  const photo=await helper.writeProfilePhoto('student-a',{uri:'blob:profile',base64:'YWJj',mimeType:'image/png'});
+  assert.equal(photo,'data:image/png;base64,YWJj');
+  assert.equal(await helper.readProfilePhoto('student-a'),photo);
+  await helper.removeProfilePhoto('student-a');
+  assert.equal(await helper.readProfilePhoto('student-a'),null);
+});
+test('native profile photos survive restarts and replacing or clearing removes saved files',async()=>{
+  const storage=new Map(),files=new Set(),directories=new Set();
+  class MockDirectory{
+    constructor(...parts){this.uri=parts.map(part=>typeof part==='string'?part:part.uri).join('/');}
+    get exists(){return directories.has(this.uri)}
+    create(){directories.add(this.uri)}
+  }
+  class MockFile{
+    constructor(...parts){this.uri=parts.map(part=>typeof part==='string'?part:part.uri).join('/')}
+    get exists(){return files.has(this.uri)}
+    async copy(destination){files.add(destination.uri)}
+    delete(){files.delete(this.uri)}
+  }
+  const mocks={
+    '@react-native-async-storage/async-storage':{
+      getItem:async key=>storage.get(key)??null,
+      setItem:async(key,value)=>{storage.set(key,value)},
+      removeItem:async key=>{storage.delete(key)},
+    },
+    'react-native':{Platform:{OS:'android'}},
+    'expo-file-system':{Directory:MockDirectory,File:MockFile,Paths:{document:'file:///documents'}},
+  };
+  const helper=load('src/profile-photo-storage.ts',mocks);
+  const first=await helper.writeProfilePhoto('student-a',{uri:'file:///picker/first.jpg',mimeType:'image/jpeg'});
+  assert.equal(await helper.readProfilePhoto('student-a'),first);
+  const second=await helper.writeProfilePhoto('student-a',{uri:'file:///picker/second.png',mimeType:'image/png'});
+  assert.equal(await helper.readProfilePhoto('student-a'),second);
+  assert.equal(files.has(first),false);
+  await helper.removeProfilePhoto('student-a');
+  assert.equal(files.has(second),false);
+  assert.equal(await helper.readProfilePhoto('student-a'),null);
+});
+test('web profile photo storage rejects oversized files and reports storage failures',async()=>{
+  const mocks={'@react-native-async-storage/async-storage':{getItem:async()=>null,setItem:async()=>{throw new Error('quota exceeded')}},'react-native':{Platform:{OS:'web'}}};
+  const helper=load('src/profile-photo-storage.ts',mocks);
+  await assert.rejects(()=>helper.writeProfilePhoto('student-a',{uri:'blob:photo',base64:'x'.repeat(4_000_001)}),/too large/);
+  await assert.rejects(()=>helper.writeProfilePhoto('student-a',{uri:'blob:photo',base64:'YWJj'}),/quota exceeded/);
+});
 test('checkout helper imports without native crypto and produces distinct UUID keys when it is missing',()=>{
   let loads=0;
   const helper=load('src/checkout-key.ts',{'expo-crypto':()=>{loads++;throw Error("Cannot find native module 'ExpoCrypto'")}});

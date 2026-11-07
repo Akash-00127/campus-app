@@ -4,7 +4,20 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   name: "Campus Drop",
   slug: "campus-app",
   scheme: "campusdrop",
-  plugins: ["expo-router", "expo-secure-store", "expo-notifications", "expo-status-bar"],
+  plugins: [
+    "expo-router",
+    "expo-secure-store",
+    "expo-notifications",
+    "expo-status-bar",
+    [
+      "expo-image-picker",
+      {
+        photosPermission: "Choose a photo for your Campus Drop profile.",
+        cameraPermission: "Take a photo for your Campus Drop profile.",
+        microphonePermission: false,
+      },
+    ],
+  ],
   android: {
     ...config.android,
     softwareKeyboardLayoutMode: "resize",

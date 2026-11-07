@@ -5,8 +5,8 @@ import { router } from "expo-router";
 import { Brand } from "../src/brand";
 
 const roles = {
-  STUDENT: { label: "Student", title: "Your campus.", accent: "Your food. Delivered.", description: "Favourite campus food, quick snacks, and everyday essentials—day or night.", image: require("../assets/onboarding-student.png"), color: "#172033", tint: "#EEF1F6", caption: "Cravings don’t follow a schedule. Neither do we." },
-  VENDOR: { label: "Vendor", title: "Your shop,", accent: "more possibilities.", description: "Reach your campus community. Manage your products and orders in one place.", image: require("../assets/onboarding-vendor.png"), color: "#FF6B35", tint: "#FFF1EB", caption: "Local shops. A stronger campus community." },
+  STUDENT: { label: "Student", title: "Campus life,", accent: "made easy.", description: "Your favourite campus shops. Food and everyday essentials, all in one place.", image: require("../assets/onboarding-student.png"), color: "#18323D", tint: "#E9EDE7", caption: "A little less running. A lot more living." },
+  VENDOR: { label: "Vendor", title: "Your shop,", accent: "more possibilities.", description: "Reach your campus community. Manage your products and orders in one place.", image: require("../assets/onboarding-vendor.png"), color: "#D94F32", tint: "#FCECE1", caption: "Local shops. A stronger campus community." },
 };
 type Role = keyof typeof roles;
 
@@ -56,12 +56,12 @@ export default function Welcome() {
 }
 
 const s = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#F8F9FC" },
+  safe: { flex: 1, backgroundColor: "#F8F7F3" },
   page: { flex: 1, width: "100%", maxWidth: 1160, alignSelf: "center" },
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
   identity: { flexDirection: "row", alignItems: "center", gap: 8 },
-  wordmark: { color: "#172033", fontSize: 19, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold", letterSpacing: -.7 },
-  orange: { color: "#FF6B35" },
+  wordmark: { color: "#182C35", fontSize: 19, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold", letterSpacing: -.7 },
+  orange: { color: "#D94F32" },
   badge: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#EFEFE5", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 8 },
   dot: { height: 5, width: 5, borderRadius: 3, backgroundColor: "#427258" },
   badgeText: { color: "#53604E", fontSize: 10, fontWeight: "600", fontFamily: "PlusJakartaSans_600SemiBold" },
@@ -70,8 +70,8 @@ const s = StyleSheet.create({
   intro: { flexShrink: 0 },
   introWide: { flex: 1 },
   eyebrow: { color: "#92735E", fontSize: 9, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold", letterSpacing: 1.8, marginBottom: 10 },
-  headline: { fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold", color: "#172033", letterSpacing: -1.8 },
-  description: { color: "#737B8C", fontSize: 13, lineHeight: 20, marginTop: 10, maxWidth: 360 },
+  headline: { fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold", color: "#182C35", letterSpacing: -1.8 },
+  description: { color: "#78828A", fontSize: 13, lineHeight: 20, marginTop: 10, maxWidth: 360 },
   desktopNote: { color: "#92735E", fontSize: 12, lineHeight: 20, marginTop: 30 },
   experience: { flex: 1, minHeight: 0, paddingTop: 18 },
   experienceWide: { flex: 1, height: "100%", maxHeight: 600, paddingTop: 0 },
@@ -79,8 +79,8 @@ const s = StyleSheet.create({
   role: { flex: 1, minHeight: 44, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
   selectedRole: { backgroundColor: "#FFFFFF", boxShadow: "0px 2px 6px rgba(25,39,62,0.07)" },
   roleText: { fontSize: 13, fontWeight: "600", fontFamily: "PlusJakartaSans_600SemiBold", color: "#888078" },
-  selectedRoleText: { color: "#172033", fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" },
-  selectionDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: "#FF6B35" },
+  selectedRoleText: { color: "#182C35", fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" },
+  selectionDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: "#D94F32" },
   art: { flex: 1, minHeight: 0, borderRadius: 32, overflow: "hidden", alignItems: "center", justifyContent: "center" },
   halo: { position: "absolute", width: 260, height: 260, borderRadius: 130, borderWidth: 36, opacity: .65 },
   artLabel: { position: "absolute", top: 16, left: 18, flexDirection: "row", alignItems: "center", gap: 6, zIndex: 1 },
@@ -93,7 +93,7 @@ const s = StyleSheet.create({
   arrow: { color: "#FFFFFF", fontSize: 23 },
   signup: { minHeight: 44, alignItems: "center", justifyContent: "center" },
   signupText: { color: "#85817D", fontSize: 12 },
-  signupAccent: { color: "#172033", fontWeight: "700", fontFamily: "PlusJakartaSans_700Bold" },
+  signupAccent: { color: "#182C35", fontWeight: "700", fontFamily: "PlusJakartaSans_700Bold" },
   pressed: { opacity: .78, transform: [{ scale: .985 }] },
   footer: { flexDirection: "row", alignItems: "center", gap: 10, paddingTop: 4 },
   footerLine: { flex: 1, height: 1, backgroundColor: "#E7DED4" },

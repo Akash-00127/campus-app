@@ -1,95 +1,203 @@
-import { useCallback, useEffect, useState } from "react";
-import { useFocusEffect } from "expo-router";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { request, type Catalog } from "../../src/api";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { mediaUrl, request, type Catalog, type Vendor } from "../../src/api";
 import { useSession } from "../../src/session";
+import { usePreferences } from "../../src/preferences";
 import { ProductCard } from "../../src/storefront";
-import { Button, EmptyState, Notice, Screen, Title, colors, s } from "../../src/ui";
+import { CartButton } from "../../src/cart-button";
+import { EmptyState, Notice, Screen, ThemeContent, colors } from "../../src/ui";
 
-type Sort = "NAME" | "TOP_RATED" | "PRICE_ASC" | "PRICE_DESC" | "NEWEST";
-type Price = "ANY" | "99" | "199";
+type ShopFilter = "ALL" | "OPEN" | "TOP_RATED" | "FAST";
 
-export default function Search() {
+export default function Vendors() {
   const { session } = useSession();
+  const { preferences, ready: preferencesReady } = usePreferences();
   const token = session!.accessToken;
-  const [text, setText] = useState("");
-  const [query, setQuery] = useState("");
-  const [category, setCategory] = useState("");
-  const [sort, setSort] = useState<Sort>("NAME");
-  const [price, setPrice] = useState<Price>("ANY");
-  const [vegetarian, setVegetarian] = useState(false);
-  const [available, setAvailable] = useState(false);
-  const [lateNight, setLateNight] = useState(false);
   const [data, setData] = useState<Catalog>();
+  const [search, setSearch] = useState("");
+  const [searchData, setSearchData] = useState<Catalog>();
+  const [filter, setFilter] = useState<ShopFilter>("ALL");
   const [loading, setLoading] = useState(true);
-  const [busy, setBusy] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState("");
+  const [searchError, setSearchError] = useState("");
+  const requestId = useRef(0);
+  const searchRequestId = useRef(0);
 
   useEffect(() => {
-    const timer = setTimeout(() => setQuery(text.trim()), 300);
-    return () => clearTimeout(timer);
-  }, [text]);
-
-  const catalogPath = useCallback((page = 1) => {
-    const params = new URLSearchParams({ page: String(page), limit: "30", sort });
-    if (query) params.set("q", query);
-    if (category) params.set("categoryId", category);
-    if (price !== "ANY") params.set("maxPricePaise", String(Number(price) * 100));
-    if (vegetarian) params.set("vegetarian", "true");
-    if (available || lateNight) params.set("openOnly", "true");
-    return `/catalog?${params}`;
-  }, [available, category, lateNight, price, query, sort, vegetarian]);
+    if (!preferencesReady) return;
+    setFilter(preferences.openNowByDefault ? "OPEN" : "ALL");
+  }, [preferences.openNowByDefault, preferencesReady]);
 
   const load = useCallback(async () => {
-    setLoading(true); setError("");
-    try { setData(await request<Catalog>(catalogPath(), token)); }
-    catch (caught) { setError((caught as Error).message); }
-    finally { setLoading(false); }
-  }, [catalogPath, token]);
+    const current = ++requestId.current;
+    setLoading(true);
+    setError("");
+    try {
+      const next = await request<Catalog>("/catalog?limit=1&page=1", token);
+      if (current === requestId.current) setData(next);
+    } catch (caught) {
+      if (current === requestId.current) setError((caught as Error).message);
+    } finally {
+      if (current === requestId.current) setLoading(false);
+    }
+  }, [token]);
 
-  useFocusEffect(useCallback(() => { void load(); }, [load]));
+  useFocusEffect(useCallback(() => {
+    if (!preferencesReady) return;
+    void load();
+    return () => { requestId.current += 1; };
+  }, [load, preferencesReady]));
 
-  const filtered = Boolean(query || category || price !== "ANY" || vegetarian || available || lateNight || sort !== "NAME");
-  function clearFilters() { setText(""); setQuery(""); setCategory(""); setPrice("ANY"); setVegetarian(false); setAvailable(false); setLateNight(false); setSort("NAME"); }
+  useEffect(() => {
+    if (!preferencesReady) return;
+    const term = search.trim();
+    if (!term) {
+      searchRequestId.current += 1;
+      setSearchData(undefined);
+      setSearchLoading(false);
+      setSearchError("");
+      return;
+    }
+
+    const current = ++searchRequestId.current;
+    setSearchLoading(true);
+    setSearchError("");
+    const timer = setTimeout(() => {
+      const params = new URLSearchParams({ q: term, limit: "30", page: "1", sort: "TOP_RATED" });
+      if (preferences.vegetarianByDefault) params.set("vegetarian", "true");
+      void request<Catalog>(`/catalog?${params}`, token)
+        .then((next) => { if (current === searchRequestId.current) setSearchData(next); })
+        .catch((caught) => { if (current === searchRequestId.current) setSearchError((caught as Error).message); })
+        .finally(() => { if (current === searchRequestId.current) setSearchLoading(false); });
+    }, 300);
+
+    return () => {
+      clearTimeout(timer);
+      if (current === searchRequestId.current) searchRequestId.current += 1;
+    };
+  }, [preferences.vegetarianByDefault, preferencesReady, search, token]);
+
+  const shops = useMemo(() => {
+    const term = search.trim().toLowerCase();
+    return [...(data?.vendors || [])]
+      .filter((shop) => !term || [shop.name, shop.description, shop.address].some((value) => value?.toLowerCase().includes(term)))
+      .filter((shop) => filter !== "OPEN" || shop.acceptingOrders)
+      .filter((shop) => term || filter !== "TOP_RATED" || (shop.rating || 0) >= 4)
+      .filter((shop) => term || filter !== "FAST" || shop.preparationMinutes <= 20)
+      .sort((a, b) => {
+        if (!term && filter === "TOP_RATED") return (b.rating || 0) - (a.rating || 0);
+        if (!term && filter === "FAST") return a.preparationMinutes - b.preparationMinutes;
+        return Number(b.acceptingOrders) - Number(a.acceptingOrders) || a.name.localeCompare(b.name);
+      });
+  }, [data?.vendors, filter, search]);
+
+  const openCount = data?.vendors.filter((shop) => shop.acceptingOrders).length || 0;
+  const searching = Boolean(search.trim());
+
+  async function loadMoreFood() {
+    if (!searchData || loadingMore) return;
+    setLoadingMore(true);
+    setSearchError("");
+    try {
+      const params = new URLSearchParams({ q: search.trim(), limit: "30", page: String(searchData.page + 1), sort: "TOP_RATED" });
+      if (preferences.vegetarianByDefault) params.set("vegetarian", "true");
+      const next = await request<Catalog>(`/catalog?${params}`, token);
+      setSearchData({ ...next, products: [...searchData.products, ...next.products] });
+    } catch (caught) {
+      setSearchError((caught as Error).message);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   return <Screen>
-    <Title eyebrow="DISCOVER YOUR CAMPUS" title="Find your next craving" subtitle="Search dishes and vendors, then narrow the results to what works right now." />
-    <View style={x.search}><Text style={x.searchIcon}>⌕</Text><TextInput autoFocus={false} accessibilityLabel="Search by food or vendor" value={text} onChangeText={setText} placeholder="Search food or vendor" placeholderTextColor="#9299A7" returnKeyType="search" style={x.searchInput} />{!!text && <Pressable accessibilityRole="button" accessibilityLabel="Clear search" onPress={() => setText("")} style={x.clear}><Text style={x.clearText}>×</Text></Pressable>}</View>
+    <View style={v.hero}>
+      <View style={v.heroGlow} />
+      <View style={v.cartCorner}><CartButton compact light /></View>
+      <Text style={v.eyebrow}>LOCAL TO YOUR CAMPUS</Text>
+      <Text style={v.heroTitle}>Campus shops</Text>
+      <Text style={v.heroCopy}>Your favourite food, drinks and daily essentials — all in one place.</Text>
+      <View style={v.heroMeta}>
+        <View style={v.liveDot} />
+        <Text style={v.heroMetaText}>{loading ? "Finding nearby shops…" : `${openCount} open now · ${data?.vendors.length || 0} on campus`}</Text>
+      </View>
+    </View>
+
+    <View style={v.searchBox}>
+      <View style={v.searchGlyph}><View style={v.searchLens} /><View style={v.searchHandle} /></View>
+      <TextInput accessibilityLabel="Search shops and food" value={search} onChangeText={setSearch} placeholder="Search shops and food" placeholderTextColor="#8A949B" returnKeyType="search" style={v.searchInput} />
+      {!!search && <Pressable accessibilityRole="button" accessibilityLabel="Clear shop and food search" onPress={() => setSearch("")} style={v.clear}><Text style={v.clearText}>×</Text></Pressable>}
+    </View>
+
+    {!searching && <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={v.filters}>
+      {([['ALL', 'All shops'], ['OPEN', 'Open now'], ['TOP_RATED', 'Top rated'], ['FAST', 'Under 20 min']] as [ShopFilter, string][]).map(([value, label]) =>
+        <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: filter === value }} onPress={() => setFilter(value)} style={({ pressed }) => [v.filter, filter === value && v.filterActive, pressed && v.pressed]}>
+          <Text style={[v.filterText, filter === value && v.filterTextActive]}>{label}</Text>
+        </Pressable>)}
+    </ScrollView>}
+
     {error && <Notice text={error} />}
+    {searchError && <Notice text={searchError} />}
+    <View style={v.sectionHead}>
+      <View style={{ flex: 1 }}><Text style={v.sectionTitle}>{searching ? "Search results" : "Explore every shop"}</Text><Text style={v.sectionCopy}>{searching ? searchLoading || loading ? "Searching shops and every campus menu…" : `${shops.length} ${shops.length === 1 ? "shop" : "shops"} · ${searchData?.total || 0} ${(searchData?.total || 0) === 1 ? "dish" : "dishes"} for “${search.trim()}”` : loading ? "Loading the best on campus" : `${shops.length} ${shops.length === 1 ? "shop" : "shops"} ready to explore`}</Text></View>
+      {(searching || filter !== "ALL") && <Pressable onPress={() => { setSearch(""); setFilter("ALL"); }}><Text style={v.reset}>Reset</Text></Pressable>}
+    </View>
 
-    <Text style={x.label}>CATEGORIES</Text>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={x.row}>
-      {[{ id: "", name: "All food" }, ...(data?.categories || [])].map((item) => <Pressable key={item.id || "all"} accessibilityRole="button" accessibilityState={{ selected: category === item.id }} onPress={() => setCategory(item.id)} style={({ pressed }) => [x.chip, category === item.id && x.chipActive, pressed && x.pressed]}><Text style={[x.chipText, category === item.id && x.chipTextActive]}>{item.name}</Text></Pressable>)}
-    </ScrollView>
-
-    <Text style={x.label}>FILTERS</Text>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={x.row}>
-      <Filter label="Vegetarian" selected={vegetarian} onPress={() => setVegetarian((value) => !value)} />
-      <Filter label="Available now" selected={available} onPress={() => setAvailable((value) => !value)} />
-      <Filter label="Late night" selected={lateNight} onPress={() => setLateNight((value) => !value)} />
-      <Filter label="Under ₹99" selected={price === "99"} onPress={() => setPrice((value) => value === "99" ? "ANY" : "99")} />
-      <Filter label="Under ₹199" selected={price === "199"} onPress={() => setPrice((value) => value === "199" ? "ANY" : "199")} />
-    </ScrollView>
-
-    <Text style={x.label}>SORT BY</Text>
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={x.row}>
-      {([ ["NAME", "Recommended"], ["TOP_RATED", "Top rated"], ["PRICE_ASC", "Price: low"], ["PRICE_DESC", "Price: high"], ["NEWEST", "Newest"] ] as [Sort, string][]).map(([value, label]) => <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: sort === value }} onPress={() => setSort(value)} style={({ pressed }) => [x.sort, sort === value && x.sortActive, pressed && x.pressed]}><Text style={[x.sortText, sort === value && x.sortTextActive]}>{label}</Text></Pressable>)}
-    </ScrollView>
-
-    <View style={x.resultHeader}><View><Text style={x.resultTitle}>{query ? `Results for “${query}”` : "Campus menu"}</Text><Text style={x.resultCount}>{loading ? "Finding the best matches…" : `${data?.total || 0} items found`}</Text></View>{filtered && <Pressable accessibilityRole="button" onPress={clearFilters}><Text style={x.reset}>Reset</Text></Pressable>}</View>
-    {loading ? <DiscoverySkeleton /> : <View style={x.grid}>{data?.products.map((product) => <ProductCard key={product.id} product={product} enabled={data.campus.serviceEnabled} />)}</View>}
-    {!loading && data && !data.products.length && <EmptyState symbol="⌕" title="No campus matches yet" description="Try another dish, vendor, category, or remove one of the filters." />}
-    {data && data.products.length < data.total && <Button secondary disabled={busy} onPress={() => { setBusy(true); request<Catalog>(catalogPath(data.page + 1), token).then((next) => setData({ ...next, products: [...data.products, ...next.products] })).catch((caught) => setError(caught.message)).finally(() => setBusy(false)); }}>{busy ? "Loading more…" : "Load more results"}</Button>}
+    {searching ? <>
+      <View style={v.resultLabelRow}><Text style={v.resultLabel}>MATCHING SHOPS</Text><Text style={v.resultTotal}>{loading ? "…" : shops.length}</Text></View>
+      {loading ? <ShopSkeleton count={1} /> : shops.map((shop) => <ShopCard key={shop.id} shop={shop} featured={false} />)}
+      {!loading && !shops.length && <View style={v.noShopMatch}><Text style={v.noShopIcon}>⌂</Text><View style={{ flex: 1 }}><Text style={v.noShopTitle}>No shop name matched</Text><Text style={v.noShopCopy}>Food results from all campus shops are still shown below.</Text></View></View>}
+      <View style={v.resultLabelRow}><Text style={v.resultLabel}>MATCHING FOOD</Text><Text style={v.resultTotal}>{searchLoading ? "…" : searchData?.total || 0}</Text></View>
+      {searchLoading ? <FoodSkeleton /> : <View style={v.productGrid}>{searchData?.products.map((product) => <ProductCard key={product.id} product={product} enabled={searchData.campus.serviceEnabled} />)}</View>}
+      {!searchLoading && searchData && !searchData.products.length && <EmptyState symbol="⌕" title="No food found yet" description="Try another dish, ingredient, or shop name to search every campus menu." />}
+      {searchData && searchData.products.length < searchData.total && <Pressable accessibilityRole="button" disabled={loadingMore} onPress={() => void loadMoreFood()} style={({ pressed }) => [v.moreButton, pressed && v.pressed, loadingMore && v.moreButtonDisabled]}><Text style={v.moreButtonText}>{loadingMore ? "Loading more food…" : "Show more food"}</Text></Pressable>}
+    </> : <>
+      {loading ? <ShopSkeleton /> : shops.map((shop, index) => <ShopCard key={shop.id} shop={shop} featured={index === 0 && filter === "ALL"} />)}
+      {!loading && !shops.length && <EmptyState symbol="⌂" title="No shops match yet" description="Clear a filter to see more campus shops." />}
+    </>}
   </Screen>;
 }
 
-function Filter({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) { return <Pressable accessibilityRole="button" accessibilityState={{ selected }} onPress={onPress} style={({ pressed }) => [x.filter, selected && x.filterActive, pressed && x.pressed]}><View style={[x.filterDot, selected && x.filterDotActive]}>{selected && <Text style={x.filterCheck}>✓</Text>}</View><Text style={[x.filterText, selected && x.filterTextActive]}>{label}</Text></Pressable>; }
-function DiscoverySkeleton() { return <View style={x.grid}>{[0, 1, 2, 3].map((item) => <View key={item} style={x.skeleton}><View style={x.skeletonImage} /><View style={x.skeletonLine} /><View style={[x.skeletonLine, { width: "58%" }]} /><View style={x.skeletonButton} /></View>)}</View>; }
+function ShopCard({ shop, featured }: { shop: Vendor; featured: boolean }) {
+  const picture = shop.coverImage || shop.logo;
+  return <ThemeContent><Pressable accessibilityRole="button" accessibilityLabel={`Open ${shop.name}`} onPress={() => router.push(`/vendor/${shop.id}`)} style={({ pressed }) => [v.card, pressed && v.cardPressed]}>
+    <View style={v.picture}>
+      {picture ? <Image source={{ uri: mediaUrl(picture) }} resizeMode="cover" style={v.image} /> : <View style={v.placeholder}><View style={v.placeholderBadge}><Text style={v.placeholderInitial}>{shop.name.slice(0, 1).toUpperCase()}</Text></View><Text style={v.placeholderText}>CAMPUS FAVOURITE</Text></View>}
+      <View style={v.imageShade} />
+      {featured && <View style={v.featured}><Text style={v.featuredText}>FEATURED</Text></View>}
+      <View style={[v.status, shop.acceptingOrders ? v.statusOpen : v.statusClosed]}><View style={[v.statusDot, { backgroundColor: shop.acceptingOrders ? "#36C98F" : "#AAB0B4" }]} /><Text style={v.statusText}>{shop.acceptingOrders ? "OPEN" : "CLOSED"}</Text></View>
+    </View>
+    <View style={v.cardBody}>
+      <View style={v.nameRow}><View style={{ flex: 1 }}><Text numberOfLines={1} style={v.shopName}>{shop.name}</Text><Text numberOfLines={2} style={v.description}>{shop.description || "Fresh campus favourites, made for you."}</Text></View><View style={v.arrow}><Text style={v.arrowText}>›</Text></View></View>
+      <View style={v.details}>
+        <View style={v.detailPill}><Text style={v.star}>★</Text><Text style={v.detailText}>{shop.rating ? shop.rating.toFixed(1) : "New"}{shop.reviewCount ? ` (${shop.reviewCount})` : ""}</Text></View>
+        <View style={v.detailPill}><Text style={v.clock}>◷</Text><Text style={v.detailText}>{shop.preparationMinutes} min</Text></View>
+        {shop.codEnabled && <View style={v.detailPill}><Text style={v.detailText}>Cash on delivery</Text></View>}
+      </View>
+      <Text numberOfLines={1} style={v.address}>⌖  {shop.address || "On campus"}</Text>
+    </View>
+  </Pressable></ThemeContent>;
+}
 
-const x = StyleSheet.create({
-  search: { minHeight: 58, flexDirection: "row", alignItems: "center", backgroundColor: colors.surface, borderWidth: 1.5, borderColor: "#FFD1C0", borderRadius: 18, paddingHorizontal: 15, shadowColor: colors.green, shadowOpacity: .06, shadowRadius: 12, shadowOffset: { width: 0, height: 5 } }, searchIcon: { color: colors.green, fontSize: 24, marginRight: 10 }, searchInput: { flex: 1, color: colors.ink, fontSize: 14, fontFamily: "PlusJakartaSans_500Medium", paddingVertical: 15 }, clear: { width: 30, height: 30, borderRadius: 10, backgroundColor: colors.bg, alignItems: "center", justifyContent: "center" }, clearText: { color: colors.muted, fontSize: 20 },
-  label: { color: colors.muted, fontSize: 8, letterSpacing: 1.4, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold", marginTop: 22, marginBottom: 10 }, row: { gap: 8, paddingRight: 8 }, chip: { minHeight: 39, justifyContent: "center", paddingHorizontal: 14, borderRadius: 13, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line }, chipActive: { backgroundColor: colors.lime, borderColor: "#FFB99F" }, chipText: { color: colors.ink, fontSize: 10, fontWeight: "700", fontFamily: "PlusJakartaSans_700Bold" }, chipTextActive: { color: colors.green },
-  filter: { minHeight: 39, flexDirection: "row", alignItems: "center", gap: 7, paddingHorizontal: 12, borderRadius: 13, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line }, filterActive: { backgroundColor: colors.navy, borderColor: colors.navy }, filterDot: { width: 15, height: 15, borderRadius: 5, borderWidth: 1.5, borderColor: "#B9C0CC", alignItems: "center", justifyContent: "center" }, filterDotActive: { borderColor: colors.orange, backgroundColor: colors.orange }, filterCheck: { color: colors.navy, fontSize: 9, fontWeight: "900" }, filterText: { color: colors.ink, fontSize: 10, fontWeight: "700" }, filterTextActive: { color: "white" },
-  sort: { paddingHorizontal: 13, paddingVertical: 9, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line }, sortActive: { backgroundColor: colors.lime, borderColor: "#FFB99F" }, sortText: { color: colors.muted, fontSize: 10, fontWeight: "700" }, sortTextActive: { color: colors.green }, pressed: { opacity: .75, transform: [{ scale: .97 }] }, resultHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end", marginTop: 29, marginBottom: 16 }, resultTitle: { color: colors.ink, fontSize: 20, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold", letterSpacing: -.5 }, resultCount: { color: colors.muted, fontSize: 10, marginTop: 4 }, reset: { color: colors.green, fontSize: 11, fontWeight: "800", padding: 8 }, grid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" },
-  skeleton: { width: "48%", borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, padding: 10, marginBottom: 16 }, skeletonImage: { height: 150, borderRadius: 14, backgroundColor: "#ECEFF4" }, skeletonLine: { height: 10, width: "80%", borderRadius: 5, backgroundColor: "#ECEFF4", marginTop: 11 }, skeletonButton: { height: 35, borderRadius: 11, backgroundColor: "#F3F4F7", marginTop: 13 },
+function ShopSkeleton({ count = 3 }: { count?: number }) {
+  return <ThemeContent>{Array.from({ length: count }, (_, item) => <View key={item} style={v.skeleton}><View style={v.skeletonImage} /><View style={v.skeletonBody}><View style={v.skeletonLine} /><View style={[v.skeletonLine, { width: "62%" }]} /><View style={v.skeletonPills} /></View></View>)}</ThemeContent>;
+}
+
+function FoodSkeleton() {
+  return <ThemeContent><View style={v.productGrid}>{[0, 1, 2, 3].map((item) => <View key={item} style={v.foodSkeleton}><View style={v.foodSkeletonImage} /><View style={v.foodSkeletonLine} /><View style={[v.foodSkeletonLine, { width: "58%" }]} /><View style={v.foodSkeletonButton} /></View>)}</View></ThemeContent>;
+}
+
+const v = StyleSheet.create({
+  hero: { minHeight: 222, borderRadius: 28, padding: 24, backgroundColor: colors.navy, overflow: "hidden", justifyContent: "center", marginBottom: -29 }, heroGlow: { position: "absolute", width: 220, height: 220, borderRadius: 110, backgroundColor: "#335B62", right: -88, top: -92, opacity: .65 }, cartCorner: { position: "absolute", right: 18, top: 18, zIndex: 2 }, eyebrow: { color: "#FFB89F", fontSize: 9, letterSpacing: 1.8, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold", marginBottom: 9 }, heroTitle: { color: "#FFFFFF", fontSize: 35, letterSpacing: -1.2, lineHeight: 40, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" }, heroCopy: { color: "#D5E0E2", fontSize: 12, lineHeight: 19, maxWidth: 310, marginTop: 8, fontFamily: "PlusJakartaSans_500Medium" }, heroMeta: { marginTop: 18, flexDirection: "row", alignItems: "center", gap: 7 }, liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#51D5A1" }, heroMetaText: { color: "#FFFFFF", fontSize: 10, fontWeight: "700", fontFamily: "PlusJakartaSans_700Bold" },
+  searchBox: { minHeight: 60, marginHorizontal: 13, borderRadius: 19, backgroundColor: colors.surface, borderWidth: 1, borderColor: "#E8E6DF", flexDirection: "row", alignItems: "center", paddingHorizontal: 15, boxShadow: "0px 8px 22px rgba(24,50,61,0.12)" }, searchInput: { flex: 1, paddingVertical: 18, paddingHorizontal: 12, color: colors.ink, fontSize: 13, fontFamily: "PlusJakartaSans_500Medium" }, searchGlyph: { width: 20, height: 20 }, searchLens: { width: 14, height: 14, borderRadius: 8, borderWidth: 1.8, borderColor: colors.green }, searchHandle: { position: "absolute", width: 7, height: 2, backgroundColor: colors.green, right: 0, bottom: 2, borderRadius: 2, transform: [{ rotate: "45deg" }] }, clear: { width: 29, height: 29, borderRadius: 10, backgroundColor: colors.bg, alignItems: "center", justifyContent: "center" }, clearText: { color: colors.muted, fontSize: 19, lineHeight: 22 },
+  filters: { paddingTop: 19, paddingBottom: 5, paddingRight: 8, gap: 8 }, filter: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line }, filterActive: { backgroundColor: colors.ink, borderColor: colors.ink }, filterText: { color: colors.ink, fontSize: 10, fontWeight: "700", fontFamily: "PlusJakartaSans_700Bold" }, filterTextActive: { color: "#FFFFFF" }, pressed: { opacity: .78, transform: [{ scale: .97 }] },
+  sectionHead: { marginTop: 22, marginBottom: 14, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" }, sectionTitle: { color: colors.ink, fontSize: 22, letterSpacing: -.7, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" }, sectionCopy: { color: colors.muted, fontSize: 10, marginTop: 4 }, reset: { color: colors.green, fontSize: 11, fontWeight: "800", padding: 8 },
+  resultLabelRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 10, marginBottom: 11 }, resultLabel: { color: colors.muted, fontSize: 8, letterSpacing: 1.4, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" }, resultTotal: { minWidth: 25, height: 25, borderRadius: 9, backgroundColor: colors.lime, color: colors.green, textAlign: "center", textAlignVertical: "center", paddingTop: 6, fontSize: 9, fontWeight: "800", overflow: "hidden" }, noShopMatch: { flexDirection: "row", alignItems: "center", gap: 12, padding: 15, borderRadius: 17, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, marginBottom: 8 }, noShopIcon: { width: 35, height: 35, borderRadius: 12, backgroundColor: colors.lime, color: colors.green, textAlign: "center", textAlignVertical: "center", paddingTop: 8, fontSize: 15, overflow: "hidden" }, noShopTitle: { color: colors.ink, fontSize: 11, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" }, noShopCopy: { color: colors.muted, fontSize: 9, lineHeight: 14, marginTop: 2 },
+  productGrid: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" }, moreButton: { minHeight: 52, borderRadius: 16, backgroundColor: colors.navy, alignItems: "center", justifyContent: "center", paddingHorizontal: 18, marginTop: 2 }, moreButtonDisabled: { opacity: .55 }, moreButtonText: { color: "#FFFFFF", fontSize: 12, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" }, foodSkeleton: { width: "48%", borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, padding: 10, marginBottom: 16 }, foodSkeletonImage: { height: 150, borderRadius: 14, backgroundColor: "#E9ECE8" }, foodSkeletonLine: { height: 10, width: "80%", borderRadius: 5, backgroundColor: "#ECEEEA", marginTop: 11 }, foodSkeletonButton: { height: 35, borderRadius: 11, backgroundColor: "#F1F2EF", marginTop: 13 },
+  card: { borderRadius: 24, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, overflow: "hidden", marginBottom: 17, boxShadow: "0px 6px 20px rgba(24,50,61,0.065)" }, cardPressed: { opacity: .92, transform: [{ scale: .99 }] }, picture: { height: 178, backgroundColor: "#E9EEE9" }, image: { width: "100%", height: "100%" }, imageShade: { position: "absolute", left: 0, right: 0, top: 0, bottom: 0, backgroundColor: "rgba(13,35,42,0.08)" }, placeholder: { flex: 1, backgroundColor: "#E7ECE8", alignItems: "center", justifyContent: "center" }, placeholderBadge: { width: 68, height: 68, borderRadius: 23, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center", boxShadow: "0px 4px 14px rgba(24,50,61,0.08)" }, placeholderInitial: { color: colors.green, fontSize: 30, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" }, placeholderText: { color: "#74827A", fontSize: 8, letterSpacing: 1.4, fontWeight: "800", marginTop: 9 }, featured: { position: "absolute", left: 12, top: 12, borderRadius: 9, paddingHorizontal: 9, paddingVertical: 6, backgroundColor: "#FFD985" }, featuredText: { color: colors.navy, fontSize: 8, letterSpacing: .9, fontWeight: "900", fontFamily: "PlusJakartaSans_800ExtraBold" }, status: { position: "absolute", right: 12, top: 12, flexDirection: "row", alignItems: "center", gap: 5, borderRadius: 10, paddingHorizontal: 9, paddingVertical: 6 }, statusOpen: { backgroundColor: "rgba(24,50,61,.90)" }, statusClosed: { backgroundColor: "rgba(73,78,81,.90)" }, statusDot: { width: 6, height: 6, borderRadius: 3 }, statusText: { color: "#FFFFFF", fontSize: 8, letterSpacing: .8, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" },
+  cardBody: { padding: 17 }, nameRow: { flexDirection: "row", alignItems: "center", gap: 12 }, shopName: { color: colors.ink, fontSize: 18, letterSpacing: -.4, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" }, description: { color: colors.muted, fontSize: 10, lineHeight: 15, marginTop: 4 }, arrow: { width: 37, height: 37, borderRadius: 13, backgroundColor: colors.lime, alignItems: "center", justifyContent: "center" }, arrowText: { color: colors.green, fontSize: 27, lineHeight: 29, marginTop: -2 }, details: { flexDirection: "row", flexWrap: "wrap", gap: 7, marginTop: 14 }, detailPill: { borderRadius: 10, backgroundColor: "#F3F3EF", paddingHorizontal: 9, paddingVertical: 7, flexDirection: "row", alignItems: "center", gap: 4 }, detailText: { color: colors.ink, fontSize: 9, fontWeight: "700", fontFamily: "PlusJakartaSans_700Bold" }, star: { color: colors.orange, fontSize: 10 }, clock: { color: colors.green, fontSize: 12 }, address: { borderTopWidth: 1, borderTopColor: colors.line, marginTop: 14, paddingTop: 12, color: colors.muted, fontSize: 9, fontWeight: "600", fontFamily: "PlusJakartaSans_600SemiBold" },
+  skeleton: { borderRadius: 24, overflow: "hidden", borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surface, marginBottom: 17 }, skeletonImage: { height: 172, backgroundColor: "#E9ECE8" }, skeletonBody: { padding: 17 }, skeletonLine: { height: 11, width: "82%", borderRadius: 6, backgroundColor: "#ECEEEA", marginBottom: 9 }, skeletonPills: { height: 28, width: "45%", borderRadius: 10, backgroundColor: "#F1F2EF", marginTop: 4 },
 });
