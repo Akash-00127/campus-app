@@ -1,16 +1,9 @@
 
-import { useEffect, useRef } from "react";
-import { AccessibilityInfo, Animated, Easing, Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { router, useLocalSearchParams } from "expo-router";
-import { Brand } from "../src/brand";
-import { colors } from "../src/ui";
-
-const profiles = {
-  STUDENT: { name: "Student", detail: "Find your canteen favourites and order to your hostel.", tint: "#F1EAFB", art: require("../assets/onboarding-student.png") },
-  VENDOR: { name: "Vendor", detail: "List your dishes and take orders from your campus.", tint: "#E3F3EB", art: require("../assets/onboarding-vendor.png") },
-} as const;
-type Role = keyof typeof profiles;
+const roles = {
+  STUDENT: { label: "Student", title: "Campus life,", accent: "made easy.", description: "Your favourite campus shops. Food and everyday essentials, all in one place.", image: require("../assets/onboarding-student.png"), color: "#18323D", tint: "#E9EDE7", caption: "A little less running. A lot more living." },
+  VENDOR: { label: "Vendor", title: "Your shop,", accent: "more possibilities.", description: "Reach your campus community. Manage your products and orders in one place.", image: require("../assets/onboarding-vendor.png"), color: "#D94F32", tint: "#FCECE1", caption: "Local shops. A stronger campus community." },
+};
+type Role = keyof typeof roles;
 
 export default function Welcome() {
   const { role: value } = useLocalSearchParams<{ role?: string }>();
@@ -60,20 +53,48 @@ export default function Welcome() {
     {role && <View style={s.actions}>{(["/login","/register"] as const).map(path => <Pressable key={path} accessibilityRole="button" onPress={()=>router.push({pathname:path,params:{role}})} style={({pressed})=>[s.action,path==="/login" && s.primary,pressed && s.pressed]}><Text style={[s.actionText,path==="/login" && {color:"white"}]}>{path==="/login"?"Log in":"Create account"}</Text></Pressable>)}</View>}
   </View></SafeAreaView>;
 }
-const s=StyleSheet.create({
-  foodHero:{flexDirection:"row",backgroundColor:"#35273D",borderRadius:24,overflow:"hidden",alignItems:"center"},
-  heroCopy:{flex:1,paddingLeft:18,paddingRight:4,gap:6},heroTitle:{fontFamily:"PlusJakartaSans_800ExtraBold",fontSize:25,lineHeight:29,color:"#FFF8ED",letterSpacing:-1},heroBody:{fontFamily:"Inter_400Regular",fontSize:12,lineHeight:17,color:"#EEDFE4"},
-  foodArt:{width:"43%",height:"100%",overflow:"hidden"},mainDish:{position:"absolute",width:"106%",height:"95%",top:-8,right:-10,borderRadius:70,borderWidth:3,borderColor:"#E1B886"},smallDish:{position:"absolute",width:"56%",height:"49%",bottom:-3,left:0,borderRadius:36,borderWidth:3,borderColor:"#FFF4DC"},
-  studentScene:{flex:1,alignSelf:"center",aspectRatio:1,maxWidth:"100%",borderRadius:26,overflow:"hidden",backgroundColor:"#F0EAFE"},
-  vendorScene:{flex:1,alignItems:"center",justifyContent:"center",backgroundColor:"#D9EFE4",borderRadius:26,overflow:"hidden"},
-  ticket:{position:"absolute",bottom:10,right:10,backgroundColor:"#FFFEFA",padding:10,borderRadius:14,gap:2,boxShadow:"0px 6px 15px rgba(33,70,53,.12)"},
-  ticketLabel:{fontFamily:"PlusJakartaSans_700Bold",fontSize:10,color:"#3F6657",letterSpacing:.5},ticketTitle:{fontFamily:"PlusJakartaSans_800ExtraBold",fontSize:18,color:"#233F34"},rule:{borderTopWidth:1,borderColor:"#CCDAD2",marginVertical:4},amount:{fontFamily:"PlusJakartaSans_800ExtraBold",fontSize:24,color:"#23553F"},
-  orb:{position:"absolute",width:390,height:390,borderRadius:195,top:-155,right:-135,backgroundColor:"#F0DCF1"},mint:{position:"absolute",width:320,height:320,borderRadius:160,bottom:-135,left:-110,backgroundColor:"#FFE8CA"},
-  safe:{flex:1,backgroundColor:colors.bg},page:{flex:1,width:"100%",maxWidth:620,alignSelf:"center",padding:20,justifyContent:"center",gap:16},
-  header:{flexDirection:"row",justifyContent:"center",alignItems:"center",width:"100%"},wordmark:{fontFamily:"PlusJakartaSans_800ExtraBold",fontSize:19,color:colors.ink},
-  title:{fontFamily:"PlusJakartaSans_800ExtraBold",fontSize:38,letterSpacing:-1.4,color:colors.ink},
-  cards:{flexShrink:1,flexGrow:1,flexBasis:0,maxHeight:420,gap:12},card:{flex:1,flexDirection:"row",alignItems:"center",borderRadius:28,boxShadow:"0px 6px 18px rgba(55,39,94,0.09)",borderWidth:1,borderColor:"rgba(255,255,255,0.9)",overflow:"hidden",paddingHorizontal:12,gap:10},
-  image:{width:"38%",height:"99%"},copy:{flex:1,gap:5},name:{fontFamily:"PlusJakartaSans_700Bold",fontSize:21,color:colors.ink},body:{fontFamily:"Inter_400Regular",fontSize:13,lineHeight:19,color:colors.muted},
-  arrow:{fontSize:19,color:"#49335D",width:32,height:32,lineHeight:30,textAlign:"center",borderRadius:16,backgroundColor:"#FFFFFF"},back:{minWidth:76,height:44,alignItems:"center",justifyContent:"center",backgroundColor:"white",borderRadius:14},backText:{fontSize:14,color:colors.ink},
-  actions:{gap:8},action:{minHeight:48,borderWidth:1,borderColor:colors.line,borderRadius:14,alignItems:"center",justifyContent:"center",backgroundColor:"white"},primary:{backgroundColor:colors.green,borderColor:colors.green},actionText:{fontFamily:"PlusJakartaSans_700Bold",color:colors.ink},pressed:{opacity:.82},
+
+const s = StyleSheet.({
+  safe: { flex: 1, backgroundColor: "#F8F7F3" },
+  page: { flex: 1, width: "100%", maxWidth: 1160, alignSelf: "center" },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10 },
+  identity: { flexDirection: "row", alignItems: "center", gap: 8 },
+  wordmark: { color: "#182C35", fontSize: 19, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold", letterSpacing: -.7 },
+  orange: { color: "#D94F32" },
+  badge: { flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: "#EFEFE5", borderRadius: 20, paddingHorizontal: 10, paddingVertical: 8 },
+  dot: { height: 5, width: 5, borderRadius: 3, backgroundColor: "#427258" },
+  badgeText: { color: "#53604E", fontSize: 10, fontWeight: "600", fontFamily: "PlusJakartaSans_600SemiBold" },
+  content: { flex: 1, minHeight: 0, paddingVertical: 16, width: "100%", maxWidth: 480, alignSelf: "center" },
+  contentWide: { flexDirection: "row", alignItems: "center", gap: 70, maxWidth: 1100, paddingVertical: 28 },
+  intro: { flexShrink: 0 },
+  introWide: { flex: 1 },
+  eyebrow: { color: "#92735E", fontSize: 9, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold", letterSpacing: 1.8, marginBottom: 10 },
+  headline: { fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold", color: "#182C35", letterSpacing: -1.8 },
+  description: { color: "#78828A", fontSize: 13, lineHeight: 20, marginTop: 10, maxWidth: 360 },
+  desktopNote: { color: "#92735E", fontSize: 12, lineHeight: 20, marginTop: 30 },
+  experience: { flex: 1, minHeight: 0, paddingTop: 18 },
+  experienceWide: { flex: 1, height: "100%", maxHeight: 600, paddingTop: 0 },
+  selector: { flexDirection: "row", backgroundColor: "#ECEDE7", padding: 4, borderRadius: 16, gap: 4 },
+  role: { flex: 1, minHeight: 44, borderRadius: 12, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+  selectedRole: { backgroundColor: "#FFFFFF", boxShadow: "0px 2px 6px rgba(25,39,62,0.07)" },
+  roleText: { fontSize: 13, fontWeight: "600", fontFamily: "PlusJakartaSans_600SemiBold", color: "#888078" },
+  selectedRoleText: { color: "#182C35", fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" },
+  selectionDot: { width: 5, height: 5, borderRadius: 3, backgroundColor: "#D94F32" },
+  art: { flex: 1, minHeight: 0, borderRadius: 32, overflow: "hidden", alignItems: "center", justifyContent: "center" },
+  halo: { position: "absolute", width: 260, height: 260, borderRadius: 130, borderWidth: 36, opacity: .65 },
+  artLabel: { position: "absolute", top: 16, left: 18, flexDirection: "row", alignItems: "center", gap: 6, zIndex: 1 },
+  artLabelText: { fontSize: 8, letterSpacing: 1.1, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" },
+  illustration: { width: "84%", height: "80%", maxHeight: 320 },
+  caption: { position: "absolute", bottom: 16, color: "#59677D", fontSize: 10, fontWeight: "600", fontFamily: "PlusJakartaSans_600SemiBold", textAlign: "center" },
+  actions: { flexShrink: 0 },
+  primary: { minHeight: 52, borderRadius: 18, paddingHorizontal: 20, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  primaryText: { color: "#FFFFFF", fontSize: 14, fontWeight: "700", fontFamily: "PlusJakartaSans_700Bold" },
+  arrow: { color: "#FFFFFF", fontSize: 23 },
+  signup: { minHeight: 44, alignItems: "center", justifyContent: "center" },
+  signupText: { color: "#85817D", fontSize: 12 },
+  signupAccent: { color: "#182C35", fontWeight: "700", fontFamily: "PlusJakartaSans_700Bold" },
+  pressed: { opacity: .78, transform: [{ scale: .985 }] },
+  footer: { flexDirection: "row", alignItems: "center", gap: 10, paddingTop: 4 },
+  footerLine: { flex: 1, height: 1, backgroundColor: "#E7DED4" },
+  footerText: { color: "#A1978C", fontSize: 8, letterSpacing: 1.1, textAlign: "center" },
 });

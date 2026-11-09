@@ -2,28 +2,30 @@ import { Redirect, Tabs } from "expo-router";
 import { useSession } from "../../src/session";
 import { colors, Loading } from "../../src/ui";
 import { NavIcon } from "../../src/nav-icon";
+import { useAppTheme } from "../../src/theme";
 export default function Layout() {
-  const { session, ready, cart, setAccountSection } = useSession();
+  const { session, ready, saved, setAccountSection } = useSession();
+  const { darkMode } = useAppTheme();
   if (!ready) return <Loading />;
   if (!session) return <Redirect href="/welcome" />;
   const vendor = session.user.role === "VENDOR";
-  const cartCount = cart.reduce((count, line) => count + line.quantity, 0);
+  const savedCount = saved.length;
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.green,
-        tabBarInactiveTintColor: colors.muted,
+        tabBarActiveTintColor: darkMode ? "#FFAC8E" : colors.green,
+        tabBarInactiveTintColor: darkMode ? "#93A2A5" : colors.muted,
         tabBarStyle: {
           position: "absolute",
-          marginHorizontal: 18,
+          marginHorizontal: 16,
           bottom: 14,
           height: 74,
-          borderRadius: 24,
-          backgroundColor: "#FFFFFF",
+          borderRadius: 26,
+          backgroundColor: darkMode ? "#18272C" : "#FFFFFF",
           borderTopWidth: 1,
-          borderColor: colors.line,
-          shadowColor: colors.navy,
+          borderColor: darkMode ? "#293B40" : "#EAE9E3",
+          shadowColor: darkMode ? "#000000" : "#18323D",
           shadowOpacity: 0.12,
           shadowOffset: { width: 0, height: 7 },
           shadowRadius: 20,
@@ -44,9 +46,25 @@ export default function Layout() {
       <Tabs.Screen
         name="search"
         options={{
-          title: "Search",
+          title: "Vendors",
           href: vendor ? null : undefined,
-          tabBarIcon: ({ color, focused }) => <NavIcon name="search" color={color} focused={focused} />,
+          tabBarIcon: ({ color, focused }) => <NavIcon name="vendors" color={color} focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="cart"
+        options={{
+          title: "Products",
+          href: vendor ? undefined : null,
+          tabBarIcon: ({ color, focused }) => <NavIcon name="cart" color={color} focused={focused} />,
+        }}
+      />
+      <Tabs.Screen
+        name="saved"
+        options={{
+          title: "Likes",
+          href: vendor ? null : undefined,
+          tabBarIcon: ({ color, focused }) => <NavIcon name="likes" color={color} focused={focused} count={savedCount} />,
         }}
       />
       <Tabs.Screen
@@ -54,13 +72,6 @@ export default function Layout() {
         options={{
           title: "Orders",
           tabBarIcon: ({ color, focused }) => <NavIcon name="orders" color={color} focused={focused} />,
-        }}
-      />
-      <Tabs.Screen
-        name="cart"
-        options={{
-          title: vendor ? "Products" : "Cart",
-          tabBarIcon: ({ color, focused }) => <NavIcon name="cart" color={color} focused={focused} count={vendor ? 0 : cartCount} />,
         }}
       />
       <Tabs.Screen
