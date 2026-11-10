@@ -16,9 +16,9 @@ export function darkThemeColor(value: string, role: "background" | "border" | "t
   const luminance = 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue);
   const chroma = Math.max(red, green, blue) - Math.min(red, green, blue);
 
-  if (role === "background" && luminance > 0.68) return chroma > 0.24 ? "#382F2C" : luminance > 0.9 ? "#18272C" : "#233439";
-  if (role === "border" && luminance > 0.48) return "#304247";
-  if (role === "text" && chroma < 0.16) return luminance < 0.1 ? "#F4F6F3" : luminance < 0.62 ? "#A7B3B4" : value;
+  if (role === "background" && luminance > 0.68) return chroma > 0.24 ? "#302452" : luminance > 0.9 ? "#17152E" : "#242140";
+  if (role === "border" && luminance > 0.48) return "#3C3860";
+  if (role === "text" && chroma < 0.16) return luminance < 0.1 ? "#F7F5FF" : luminance < 0.62 ? "#B8B4CC" : value;
   if (role === "shadow" && luminance > 0.55) return "#000000";
   return value;
 }

@@ -1,33 +1,52 @@
 import { PasswordEye } from "./password-eye";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
+import { ChevronDown, LockKeyhole, Mail, MapPin, Phone, Search, ShieldCheck, Store, UserRound } from "lucide-react-native";
 import {
   ActivityIndicator, BackHandler, FlatList, Keyboard, KeyboardAvoidingView, Modal, Platform,
-  Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions, type TextInputProps,
+  Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions, type TextInputProps,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Brand } from "./brand";
 import { campuses, register, requestRegistrationOtp, universities, type Campus, type University, type UserSession } from "./api";
+import { AuthLogo } from "./auth-logo";
+import { authColors, authFonts, authGradients } from "./auth-theme";
 import { useSession } from "./session";
-import { colors } from "./ui";
 import { registrationError, registrationSteps, type RegistrationDetails, type RegistrationStep } from "./registration-flow";
 
 const initial: RegistrationDetails = { name: "", email: "", phone: "", universityId: "", campusId: "", shopName: "", address: "", password: "", otp: "" };
 const copy: Record<RegistrationStep, { title: string; subtitle: string; label: string }> = {
-  identity: { title: "Your campus, your place.", subtitle: "Add your name, university and campus.", label: "Your campus" },
-  shop: { title: "Add your shop.", subtitle: "Your shop name and pickup location.", label: "Your shop" },
-  account: { title: "Your account details.", subtitle: "Add your email, mobile number and password.", label: "Account" },
-  verify: { title: "Check your phone.", subtitle: "Enter the code we sent to your mobile.", label: "Verify mobile" },
+  identity: { title: "Join the Drop Club", subtitle: "Tell us your name and choose the campus you belong to.", label: "Your campus" },
+  shop: { title: "Set up your campus shop", subtitle: "Add the store name and student pickup location.", label: "Your shop" },
+  account: { title: "Secure your account", subtitle: "Add your email, mobile number and a strong password.", label: "Account" },
+  verify: { title: "Check your phone", subtitle: "Enter the six-digit code sent to your mobile.", label: "Verify mobile" },
 };
-const fonts = { regular: "Inter_400Regular", medium: "Inter_500Medium", bold: "PlusJakartaSans_700Bold", extra: "PlusJakartaSans_800ExtraBold" };
+const fonts = authFonts;
 
-function Input({ label, compact, ...props }: TextInputProps & { label: string; compact: boolean }) {
+function fieldIcon(label: string) {
+  const props = { size: 18, color: "#718096", strokeWidth: 2 };
+  const normalized = label.toLowerCase();
+  if (normalized.includes("name") && !normalized.includes("shop")) return <UserRound {...props} />;
+  if (normalized.includes("email")) return <Mail {...props} />;
+  if (normalized.includes("password")) return <LockKeyhole {...props} color={authColors.inputActive} />;
+  if (normalized.includes("mobile")) return <Phone {...props} />;
+  if (normalized.includes("code")) return <ShieldCheck {...props} color={authColors.inputActive} />;
+  if (normalized.includes("store") || normalized.includes("canteen")) return <Store {...props} />;
+  if (normalized.includes("location") || normalized.includes("block")) return <MapPin {...props} />;
+  return <Search {...props} />;
+}
+
+function Input({ label, compact, right, onFocus, onBlur, ...props }: TextInputProps & { label: string; compact: boolean; right?: ReactNode }) {
   const [focused, setFocused] = useState(false);
   return <View style={[r.field, compact && { marginBottom: 10 }]}>
     <Text style={r.label}>{label}</Text>
-    <TextInput {...props} accessibilityLabel={label} placeholderTextColor="#8B9497" selectionColor={colors.green}
-      onFocus={() => setFocused(true)} onBlur={() => setFocused(false)}
-      style={[r.input, compact && { minHeight: 44, paddingVertical: 10 }, focused && r.inputFocused, props.style]} />
+    <View style={[r.inputShell, compact && { minHeight: 46 }, focused && r.inputFocused]}>
+      <View style={r.inputIcon}>{fieldIcon(label)}</View>
+      <TextInput {...props} accessibilityLabel={label} placeholderTextColor={authColors.muted} selectionColor={authColors.inputActive} cursorColor={authColors.inputActive}
+        onFocus={event => { setFocused(true); onFocus?.(event); }} onBlur={event => { setFocused(false); onBlur?.(event); }}
+        style={[r.input, compact && { paddingVertical: 10 }, !!right && { paddingRight: 48 }, props.style]} />
+      {right ? <View style={r.fieldAction}>{right}</View> : null}
+    </View>
   </View>;
 }
 
@@ -42,7 +61,6 @@ export function RegistrationScreen() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [keyboard, setKeyboard] = useState(false);
-  const [viewportHeight, setViewportHeight] = useState(height);
   const [showPassword, setShowPassword] = useState(false);
   const [otpRequested, setOtpRequested] = useState(false);
   const [uniRows, setUniRows] = useState<University[]>([]);
@@ -62,8 +80,8 @@ export function RegistrationScreen() {
   const submitting = useRef(false);
   const steps = registrationSteps(vendor);
   const step = steps[stepIndex];
-  const compact = keyboard || height < 740 || viewportHeight < 700 || fontScale > 1.2;
-  const tight = viewportHeight < 450;
+  const compact = keyboard || height < 740 || fontScale > 1.2;
+  const tight = height < 520;
   const loading = picker === "university" ? uniLoading : campusLoading;
   const pickerError = picker === "university" ? uniError : campusError;
   const meta = otpRequested && step === "account" ? copy.verify : copy[step];
@@ -184,15 +202,24 @@ export function RegistrationScreen() {
   const pickerRows = (picker === "university" ? uniRows : campusRows).filter(row => row.name.toLowerCase().includes(search.trim().toLowerCase()));
   const fieldProps = { compact, editable: !busy, returnKeyType: "done" as const };
   const actionLabel = createdAccount.current ? "Retry & continue"
-    : step === "account" ? otpRequested ? vendor ? "Verify & create shop" : "Verify & create account" : "Send verification code"
+    : step === "account" ? otpRequested ? vendor ? "Verify & create shop" : "Verify & create account" : "Create account"
     : "Continue";
 
   return <SafeAreaView style={r.safe}>
     <KeyboardAvoidingView style={r.flex} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-      <View onLayout={event => setViewportHeight(event.nativeEvent.layout.height)} style={[r.page, compact && r.pageCompact]}>
+      <ScrollView
+        style={r.flex}
+        contentContainerStyle={[r.page, compact && r.pageCompact]}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        automaticallyAdjustKeyboardInsets
+        showsVerticalScrollIndicator={false}
+      >
+        <View pointerEvents="none" style={r.violetGlow} />
+        <View pointerEvents="none" style={r.mangoGlow} />
         {!keyboard && !tight && <View style={r.header}>
-          <View style={r.identity}><Brand size={34} /><Text style={r.wordmark}>Campus <Text style={{ color: colors.green }}>Drop</Text></Text></View>
-          <View style={r.roleBadge}><Text style={r.roleText}>{vendor ? "FOR VENDORS" : "FOR STUDENTS"}</Text></View>
+          <AuthLogo width={104} />
+          <View style={r.roleBadge}><LinearGradient colors={authGradients.toggle} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={r.roleGradient}><Text style={r.roleText}>{vendor ? "VENDOR ACCOUNT" : "STUDENT ACCOUNT"}</Text></LinearGradient></View>
         </View>}
         <View style={[r.card, compact && r.cardCompact, tight && { padding: 12 }]}>
           <View style={r.progressHeader}>
@@ -209,10 +236,10 @@ export function RegistrationScreen() {
           <View style={r.fields}>
             {step === "identity" && <>
               <Input {...fieldProps} label={vendor ? "Owner / manager name" : "Full name"} value={details.name} onChangeText={value => update("name", value)} placeholder="Your full name" autoComplete="name" textContentType="name" maxLength={100} />
-              <Text style={r.label}>University</Text><Pressable accessibilityRole="button" onPress={() => openPicker("university")} style={r.select}><Text numberOfLines={2} style={[r.selectText, !selectedUniversity && r.placeholder]}>{selectedUniversity?.name || "Find your university"}</Text><Text style={r.chevron}>⌄</Text></Pressable>
-              {details.universityId && !campusReady && !campusError && <View style={r.campusStatus}><ActivityIndicator size="small" color={colors.green} /><Text style={r.campusStatusText}>Finding campuses…</Text></View>}
+              <Text style={r.label}>University</Text><Pressable accessibilityRole="button" onPress={() => openPicker("university")} style={r.select}><MapPin size={18} color="#718096" /><Text numberOfLines={2} style={[r.selectText, !selectedUniversity && r.placeholder]}>{selectedUniversity?.name || "Find your university"}</Text><ChevronDown size={20} color={authColors.inputActive} /></Pressable>
+              {details.universityId && !campusReady && !campusError && <View style={r.campusStatus}><ActivityIndicator size="small" color={authColors.inputActive} /><Text style={r.campusStatusText}>Finding campuses…</Text></View>}
               {details.universityId && campusError && <View style={r.campusError}><Text style={r.campusErrorText}>Couldn’t load campuses.</Text><Pressable accessibilityRole="button" onPress={() => setPickerRetry(current => current + 1)}><Text style={r.textLink}>Try again</Text></Pressable></View>}
-              {campusReady && campusRows.length > 1 && <><Text style={r.label}>Campus</Text><Pressable accessibilityRole="button" onPress={() => openPicker("campus")} style={r.select}><Text numberOfLines={2} style={[r.selectText, !selectedCampus && r.placeholder]}>{selectedCampus?.name || "Choose your campus"}</Text><Text style={r.chevron}>⌄</Text></Pressable></>}
+              {campusReady && campusRows.length > 1 && <><Text style={r.label}>Campus</Text><Pressable accessibilityRole="button" onPress={() => openPicker("campus")} style={r.select}><MapPin size={18} color="#718096" /><Text numberOfLines={2} style={[r.selectText, !selectedCampus && r.placeholder]}>{selectedCampus?.name || "Choose your campus"}</Text><ChevronDown size={20} color={authColors.inputActive} /></Pressable></>}
               {details.universityId && campusReady && campusRows.length === 0 && <Text style={r.campusEmpty}>No campuses are listed for this university. Choose another university.</Text>}
             </>}
             {step === "shop" && <>
@@ -221,30 +248,32 @@ export function RegistrationScreen() {
             </>}
             {step === "account" && !otpRequested && <>
               <Input {...fieldProps} label="Email address" value={details.email} onChangeText={value => update("email", value)} placeholder="you@university.edu" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} autoComplete="email" maxLength={254} />
-              <View style={r.passwordLabel}><Text style={r.textLink}>At least 8 characters</Text><PasswordEye visible={showPassword} onToggle={()=>setShowPassword(current=>!current)}/></View>
-              <Input {...fieldProps} label="Create password" value={details.password} onChangeText={value => update("password", value)} placeholder="Create a strong password" secureTextEntry={!showPassword} autoCapitalize="none" autoComplete="new-password" />
+              <Text style={r.passwordHint}>Password must contain at least 8 characters</Text>
+              <Input {...fieldProps} label="Create password" value={details.password} onChangeText={value => update("password", value)} placeholder="Create a strong password" secureTextEntry={!showPassword} autoCapitalize="none" autoComplete="new-password" right={<PasswordEye visible={showPassword} color={authColors.inputActive} onToggle={()=>setShowPassword(current=>!current)}/>} />
               <Input {...fieldProps} label="Mobile number · +91" value={details.phone} onChangeText={value => update("phone", value.replace(/\D/g, "").slice(0, 10))} keyboardType="phone-pad" placeholder="9876543210" maxLength={10} autoComplete="tel-national" />
             </>}
             {step === "account" && otpRequested && <>
               {!keyboard && <Text style={r.sentTo}>Code sent to <Text style={r.strong}>+91 {details.phone}</Text></Text>}
               <Input {...fieldProps} editable={!busy && !createdAccount.current} label="Six-digit verification code" value={details.otp} onChangeText={value => update("otp", value.replace(/\D/g, "").slice(0, 6))} placeholder="000000" keyboardType="number-pad" autoComplete="one-time-code" textContentType="oneTimeCode" maxLength={6} style={r.otp} />
-              {!createdAccount.current && <Pressable accessibilityRole="button" disabled={busy || remaining > 0} onPress={() => void resend()} style={r.resend}><Text style={[r.textLink, remaining > 0 && { color: colors.muted }]}>{remaining > 0 ? `Resend code in ${remaining}s` : "Didn’t get a code? Resend"}</Text></Pressable>}
+              {!createdAccount.current && <Pressable accessibilityRole="button" disabled={busy || remaining > 0} onPress={() => void resend()} style={r.resend}><Text style={[r.textLink, remaining > 0 && { color: authColors.muted }]}>{remaining > 0 ? `Resend code in ${remaining}s` : "Didn’t get a code? Resend"}</Text></Pressable>}
             </>}
           </View>
           <View style={r.footer}>
             {!!error && <Text accessibilityRole="alert" accessibilityLiveRegion="polite" style={r.error}>{error}</Text>}
-            <Pressable accessibilityRole="button" disabled={busy} onPress={() => void next()} style={({ pressed }) => [r.primary, pressed && { opacity: 0.82 }, busy && { opacity: 0.65 }]}>
-              {busy ? <ActivityIndicator color="white" accessibilityLabel="Please wait" /> : <><Text style={r.primaryText}>{actionLabel}</Text><Text style={r.primaryArrow}>→</Text></>}
+            <Pressable accessibilityRole="button" disabled={busy} onPress={() => void next()} style={({ pressed }) => [r.primaryOuter, pressed && { transform: [{ scale: 0.985 }], opacity: 0.9 }, busy && { opacity: 0.65 }]}>
+              <LinearGradient colors={authGradients.cta} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={r.primary}>
+                {busy ? <ActivityIndicator color="white" accessibilityLabel="Please wait" /> : <><Text style={r.primaryText}>{actionLabel}</Text><Text style={r.primaryArrow}>→</Text><View style={r.primaryHighlight} /></>}
+              </LinearGradient>
             </Pressable>
           </View>
         </View>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
     <Modal visible={picker !== null} animationType="slide" onRequestClose={() => { Keyboard.dismiss(); setPicker(null); }}>
       <SafeAreaView style={r.safe}><KeyboardAvoidingView style={r.pickerPage} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <View style={r.pickerHeader}><Text accessibilityRole="header" style={r.pickerTitle}>{picker === "university" ? "Find your university" : "Choose your campus"}</Text><Pressable accessibilityRole="button" accessibilityLabel="Close selection" onPress={() => { Keyboard.dismiss(); setPicker(null); }} style={r.back}><Text style={r.chevron}>×</Text></Pressable></View>
         <Input compact label="Search by name" value={search} onChangeText={setSearch} placeholder={picker === "university" ? "University name" : "Campus name"} autoCorrect={false} />
-        {loading ? <ActivityIndicator color={colors.green} style={{ margin: 24 }} /> : pickerError ? <View style={r.pickerError}><Text style={r.error}>{pickerError}</Text><Pressable accessibilityRole="button" onPress={() => { setPickerRetry(current => current + 1); }}><Text style={r.textLink}>Try again</Text></Pressable></View> : <FlatList data={pickerRows} keyExtractor={item => item.id} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ paddingBottom: 24 }} ListEmptyComponent={<Text style={r.subtitle}>No matching {picker === "university" ? "universities" : "campuses"}. Try another name.</Text>} renderItem={({ item }) => <Pressable accessibilityRole="button" accessibilityLabel={`Select ${item.name}`} onPress={() => {
+        {loading ? <ActivityIndicator color={authColors.inputActive} style={{ margin: 24 }} /> : pickerError ? <View style={r.pickerError}><Text style={r.error}>{pickerError}</Text><Pressable accessibilityRole="button" onPress={() => { setPickerRetry(current => current + 1); }}><Text style={r.textLink}>Try again</Text></Pressable></View> : <FlatList data={pickerRows} keyExtractor={item => item.id} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ paddingBottom: 24 }} ListEmptyComponent={<Text style={r.subtitle}>No matching {picker === "university" ? "universities" : "campuses"}. Try another name.</Text>} renderItem={({ item }) => <Pressable accessibilityRole="button" accessibilityLabel={`Select ${item.name}`} onPress={() => {
           if (picker === "university") { if (details.universityId !== item.id) { setCampusRows([]); setCampusLoadedFor(""); setCampusError(""); setDetails(current => ({ ...current, universityId: item.id, campusId: "" })); } }
           else update("campusId", item.id);
           setError(""); Keyboard.dismiss(); setPicker(null);
@@ -255,26 +284,64 @@ export function RegistrationScreen() {
 }
 
 const r = StyleSheet.create({
-  flex: { flex: 1 }, safe: { flex: 1, backgroundColor: colors.bg },
-  page: { flex: 1, width: "100%", maxWidth: 540, alignSelf: "center", paddingHorizontal: 20, paddingTop: 18, paddingBottom: 8 },
-  pageCompact: { paddingTop: 8, paddingHorizontal: 16 },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 20, gap: 8 },
-  identity: { flexDirection: "row", alignItems: "center", gap: 7 }, wordmark: { fontFamily: fonts.extra, fontSize: 18, color: colors.ink, letterSpacing: -0.7 },
-  roleBadge: { backgroundColor: "#EBEDE5", paddingHorizontal: 10, paddingVertical: 8, borderRadius: 20 }, roleText: { fontFamily: fonts.bold, fontSize: 8, letterSpacing: 0.8, color: "#53665A" },
-  card: { flex: 1, maxHeight: 760, backgroundColor: "white", borderWidth: 1, borderColor: colors.line, borderRadius: 28, padding: 24, boxShadow: "0px 8px 32px rgba(23,47,59,0.05)" },
-  cardCompact: { padding: 18, borderRadius: 24 }, progressHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
-  back: { minWidth:76,height:44, borderRadius: 12, backgroundColor: "#F4F4EF", alignItems: "center", justifyContent: "center" }, backText: { fontSize:14, lineHeight: 31, color: colors.ink },
-  stepLabel: { flex: 1, color: colors.ink, fontFamily: fonts.bold, fontSize: 12 }, count: { color: colors.green, fontFamily: fonts.bold, fontSize: 12 },
-  progress: { flexDirection: "row", gap: 5, marginTop: 16, marginBottom: 22 }, segment: { flex: 1, height: 4, borderRadius: 4, backgroundColor: "#ECEEE7" }, segmentActive: { backgroundColor: colors.green },
-  heading: { marginBottom: 24 }, title: { color: colors.ink, fontFamily: fonts.extra, fontSize: 29, lineHeight: 36, letterSpacing: -1 }, subtitle: { color: colors.muted, fontFamily: fonts.regular, fontSize: 12, lineHeight: 19, marginTop: 8 },
-  fields: { flexShrink: 0 }, field: { marginBottom: 16 }, label: { color: "#5C686F", fontFamily: fonts.bold, fontSize: 11, marginBottom: 7 },
-  input: { minHeight: 54, borderWidth: 1, borderColor: colors.line, borderRadius: 14, backgroundColor: "#FCFCF9", paddingHorizontal: 14, paddingVertical: 15, fontFamily: fonts.medium, fontSize: 14, color: colors.ink }, inputFocused: { borderColor: colors.green, backgroundColor: "white" },
-  select: { minHeight: 56, borderWidth: 1, borderColor: colors.line, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 12, flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#FCFCF9", marginBottom: 16 }, selectText: { flex: 1, fontFamily: fonts.medium, fontSize: 13, color: colors.ink }, placeholder: { color: "#8B9497" }, chevron: { fontSize: 23, color: colors.green },
-  passwordLabel: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 3 }, textLink: { color: colors.green, fontFamily: fonts.bold, fontSize: 11 },
-  campusStatus: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: 9, marginBottom: 14 }, campusStatusText: { color: colors.muted, fontFamily: fonts.medium, fontSize: 12 },
-  campusError: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, padding: 13, borderRadius: 13, backgroundColor: "#FFF0ED", marginBottom: 12 }, campusErrorText: { flex: 1, color: "#A63527", fontFamily: fonts.medium, fontSize: 11 }, campusEmpty: { padding: 12, borderRadius: 13, backgroundColor: "#F2F3EB", color: colors.muted, fontFamily: fonts.medium, fontSize: 11, lineHeight: 17, marginBottom: 12 },
-  footer: { marginTop: "auto", paddingTop: 10 }, primary: { minHeight: 52, borderRadius: 15, backgroundColor: colors.navy, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingHorizontal: 18, gap: 14 }, primaryText: { color: "white", fontFamily: fonts.bold, fontSize: 13 }, primaryArrow: { color: "#F2D5AD", fontSize: 22 },
-  error: { fontFamily: fonts.medium, fontSize: 11, lineHeight: 16, color: "#A63527", marginBottom: 10 }, login: { alignItems: "center", paddingVertical: 16 }, loginText: { color: colors.muted, fontFamily: fonts.regular, fontSize: 11 },
-  sentTo: { color: colors.muted, fontFamily: fonts.regular, fontSize: 12, marginBottom: 18 }, strong: { color: colors.ink, fontFamily: fonts.bold }, otp: { fontFamily: fonts.bold, fontSize: 26, letterSpacing: 8, textAlign: "center" }, resend: { alignItems: "center", paddingVertical: 12 },
-  pickerPage: { flex: 1, width: "100%", maxWidth: 540, alignSelf: "center", paddingHorizontal: 22, paddingTop: 16 }, pickerHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 24 }, pickerTitle: { flex: 1, color: colors.ink, fontFamily: fonts.extra, fontSize: 23, letterSpacing: -0.6 }, pickerError: { padding: 16, borderRadius: 15, backgroundColor: "#FFF0ED" }, pickerRow: { flexDirection: "row", alignItems: "center", paddingVertical: 18, borderBottomWidth: 1, borderColor: colors.line, gap: 12 }, pickerName: { color: colors.ink, fontFamily: fonts.bold, fontSize: 14 }, pickerMeta: { color: colors.muted, fontFamily: fonts.regular, fontSize: 11, marginTop: 5 },
+  flex: { flex: 1 },
+  safe: { flex: 1, backgroundColor: authColors.background },
+  page: { flexGrow: 1, width: "100%", maxWidth: 560, alignSelf: "center", paddingHorizontal: 20, paddingTop: 14, paddingBottom: 24 },
+  pageCompact: { paddingTop: 7, paddingHorizontal: 14 },
+  violetGlow: { position: "absolute", width: 250, height: 250, borderRadius: 125, backgroundColor: "rgba(168,85,247,0.08)", top: -145, right: -95 },
+  mangoGlow: { position: "absolute", width: 210, height: 210, borderRadius: 105, backgroundColor: "rgba(255,151,82,0.10)", bottom: 20, left: -145 },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 14, gap: 12 },
+  roleBadge: { flex: 1, maxWidth: 180, backgroundColor: authColors.toggle, padding: 4, borderRadius: 22 },
+  roleGradient: { minHeight: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", paddingHorizontal: 10 },
+  roleText: { fontFamily: fonts.bold, fontSize: 9, letterSpacing: 0.9, color: "#FFFFFF" },
+  card: { width: "100%", backgroundColor: authColors.surface, borderWidth: 1, borderColor: authColors.inputBorder, borderRadius: 28, padding: 24, shadowColor: authColors.text, shadowOpacity: 0.06, shadowRadius: 20, shadowOffset: { width: 0, height: 8 }, elevation: 2 },
+  cardCompact: { padding: 16, borderRadius: 24 },
+  progressHeader: { flexDirection: "row", alignItems: "center", gap: 12 },
+  back: { minWidth: 78, minHeight: 44, paddingHorizontal: 11, borderRadius: 16, backgroundColor: "rgba(255,255,255,0.82)", borderWidth: 1, borderColor: authColors.inputBorder, alignItems: "center", justifyContent: "center" },
+  backText: { fontSize: 13, color: authColors.text, fontFamily: fonts.bold },
+  stepLabel: { flex: 1, color: authColors.secondary, fontFamily: fonts.bold, fontSize: 12 },
+  count: { color: authColors.inputActive, fontFamily: fonts.bold, fontSize: 12 },
+  progress: { flexDirection: "row", gap: 5, marginTop: 15, marginBottom: 20 },
+  segment: { flex: 1, height: 4, borderRadius: 4, backgroundColor: "#E4ECDB" },
+  segmentActive: { backgroundColor: authColors.inputActive },
+  heading: { marginBottom: 21 },
+  title: { color: authColors.text, fontFamily: fonts.extra, fontSize: 29, lineHeight: 36, letterSpacing: -0.8 },
+  subtitle: { color: authColors.secondary, fontFamily: fonts.medium, fontSize: 12, lineHeight: 19, marginTop: 7 },
+  fields: { flexShrink: 0 },
+  field: { marginBottom: 14 },
+  label: { color: authColors.secondary, fontFamily: fonts.bold, fontSize: 11, letterSpacing: 0.35, marginBottom: 7 },
+  inputShell: { minHeight: 58, flexDirection: "row", alignItems: "center", borderWidth: 1.2, borderColor: authColors.inputBorder, borderRadius: 20, backgroundColor: authColors.input, paddingHorizontal: 16, shadowColor: authColors.text, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 1 },
+  inputFocused: { borderColor: authColors.inputActive, borderWidth: 1.4, backgroundColor: "#FFFFFF" },
+  inputIcon: { width: 30, alignItems: "flex-start" },
+  input: { flex: 1, paddingVertical: 15, fontFamily: fonts.medium, fontSize: 14, color: authColors.text, outlineWidth: 0, outlineColor: "transparent" },
+  fieldAction: { position: "absolute", right: 8, top: 7, bottom: 7, justifyContent: "center" },
+  select: { minHeight: 58, borderWidth: 1.2, borderColor: authColors.inputBorder, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 12, flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: authColors.input, marginBottom: 14, shadowColor: authColors.text, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 1 },
+  selectText: { flex: 1, fontFamily: fonts.medium, fontSize: 13, color: authColors.text },
+  placeholder: { color: authColors.muted },
+  chevron: { fontSize: 23, color: authColors.inputActive },
+  passwordHint: { alignSelf: "flex-end", color: authColors.amber, fontFamily: fonts.bold, fontSize: 10, marginBottom: 6 },
+  textLink: { color: authColors.link, fontFamily: fonts.bold, fontSize: 11 },
+  campusStatus: { minHeight: 48, flexDirection: "row", alignItems: "center", gap: 9, marginBottom: 14 },
+  campusStatusText: { color: authColors.secondary, fontFamily: fonts.medium, fontSize: 12 },
+  campusError: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, padding: 13, borderRadius: 13, backgroundColor: authColors.errorBackground, marginBottom: 12 },
+  campusErrorText: { flex: 1, color: authColors.error, fontFamily: fonts.medium, fontSize: 11 },
+  campusEmpty: { padding: 12, borderRadius: 13, backgroundColor: "#F2F3EB", color: authColors.secondary, fontFamily: fonts.medium, fontSize: 11, lineHeight: 17, marginBottom: 12 },
+  footer: { paddingTop: 10 },
+  primaryOuter: { borderRadius: 26, overflow: "hidden", shadowColor: "#A855F7", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.34, shadowRadius: 14, elevation: 6 },
+  primary: { minHeight: 56, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingHorizontal: 18, gap: 9 },
+  primaryText: { color: "#FFFFFF", fontFamily: fonts.extra, fontSize: 15, letterSpacing: 0.25 },
+  primaryArrow: { color: "#FFFFFF", fontSize: 22 },
+  primaryHighlight: { position: "absolute", right: 20, width: 25, height: 25, borderRadius: 13, backgroundColor: "rgba(255,255,255,0.22)" },
+  error: { fontFamily: fonts.medium, fontSize: 11, lineHeight: 16, color: authColors.error, marginBottom: 10 },
+  sentTo: { color: authColors.secondary, fontFamily: fonts.regular, fontSize: 12, marginBottom: 18 },
+  strong: { color: authColors.text, fontFamily: fonts.bold },
+  otp: { fontFamily: fonts.bold, fontSize: 25, letterSpacing: 7, textAlign: "center" },
+  resend: { alignItems: "center", paddingVertical: 12 },
+  pickerPage: { flex: 1, width: "100%", maxWidth: 560, alignSelf: "center", paddingHorizontal: 22, paddingTop: 16 },
+  pickerHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 24 },
+  pickerTitle: { flex: 1, color: authColors.text, fontFamily: fonts.extra, fontSize: 23, letterSpacing: -0.6 },
+  pickerError: { padding: 16, borderRadius: 15, backgroundColor: authColors.errorBackground },
+  pickerRow: { flexDirection: "row", alignItems: "center", paddingVertical: 18, borderBottomWidth: 1, borderColor: authColors.inputBorder, gap: 12 },
+  pickerName: { color: authColors.text, fontFamily: fonts.bold, fontSize: 14 },
+  pickerMeta: { color: authColors.secondary, fontFamily: fonts.regular, fontSize: 11, marginTop: 5 },
 });

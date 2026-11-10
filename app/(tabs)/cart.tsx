@@ -409,7 +409,7 @@ const c = StyleSheet.create({
   sectionTitle: { color: colors.ink, fontSize: 21, letterSpacing: -.5, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" },
   clearLink: { minHeight: 38, flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 11, borderRadius: 12, backgroundColor: colors.lime },
   clearText: { color: colors.green, fontSize: 11, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" },
-  clearPanel: { backgroundColor: "#FFF4EE", borderWidth: 1, borderColor: "#F1CDBC", borderRadius: 17, padding: 15, marginBottom: 15 },
+  clearPanel: { backgroundColor: "#F7F3FF", borderWidth: 1, borderColor: "#DED7F5", borderRadius: 17, padding: 15, marginBottom: 15 },
   clearPanelTitle: { color: colors.ink, fontSize: 13, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" },
   clearPanelCopy: { color: colors.muted, fontSize: 10, marginTop: 4 },
   clearActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 13 },

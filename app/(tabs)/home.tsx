@@ -14,6 +14,20 @@ import { Button, Loading, Notice, Screen, ThemeContent, colors, money, s } from 
 
 type QuickFilter = "" | "LATE_NIGHT" | "TOP_RATED" | "UNDER_99" | "VEG";
 type Sort = "NAME" | "PRICE_ASC" | "PRICE_DESC" | "NEWEST" | "TOP_RATED";
+
+function carouselUrls(settings?: Record<string, string>) {
+  try {
+    const images: unknown = JSON.parse(settings?.carouselImages || "[]");
+    if (!Array.isArray(images)) return [];
+    return images
+      .filter((image): image is string => typeof image === "string" && image.length > 0)
+      .map((image) => mediaUrl(image))
+      .filter((image): image is string => Boolean(image));
+  } catch {
+    return [];
+  }
+}
+
 export default function Home() {
   const { session } = useSession();
   const { preferences, ready: preferencesReady } = usePreferences();
@@ -128,7 +142,7 @@ export default function Home() {
         {!query && !category && !quick && <><HomeCarousel images={carouselImages} /><View style={h.assurance}><Text style={h.assuranceText}>⌖ Campus only</Text><Text style={h.assuranceText}>▣ Pay on delivery</Text><Text style={h.assuranceText}>✓ Clear pricing</Text></View>{data?.settings.announcement && <Notice text={data.settings.announcement} />}</>}
         {!data?.campus.serviceEnabled && data && <Notice text="Ordering hasn't opened for this campus yet. You can still explore the catalog." />}
         <SectionTitle title="Shop by category" action="View all" onPress={showAllProducts} />
-        <View style={h.categoryGrid}>{[{ id: "", name: "All finds" }, ...(data?.categories || [])].slice(0, 8).map((item, index) => <Pressable key={item.id || "all"} accessibilityRole="button" accessibilityState={{ selected: category === item.id }} onPress={() => setCategory(item.id)} style={({ pressed }) => [h.category, category === item.id && h.categoryCardSelected, pressed && h.pressed]}><View style={[h.categoryIcon, { backgroundColor: ["#FFF0E9", "#EEF3EF", "#F7F3EC", "#FFF0E9"][index % 4] }]}>{"image" in item && item.image ? <Image source={{ uri: mediaUrl(item.image) }} style={h.categoryImage} /> : <Text style={h.categoryLetter}>{item.id ? item.name.slice(0, 1) : "▦"}</Text>}</View><Text numberOfLines={2} style={h.categoryName}>{item.name}</Text></Pressable>)}</View>
+        <View style={h.categoryGrid}>{[{ id: "", name: "All finds" }, ...(data?.categories || [])].slice(0, 8).map((item, index) => <Pressable key={item.id || "all"} accessibilityRole="button" accessibilityState={{ selected: category === item.id }} onPress={() => setCategory(item.id)} style={({ pressed }) => [h.category, category === item.id && h.categoryCardSelected, pressed && h.pressed]}><View style={[h.categoryIcon, { backgroundColor: ["#F2EEFF", "#EEF5F0", "#FFF3E9", "#F7F3FF"][index % 4] }]}>{"image" in item && item.image ? <Image source={{ uri: mediaUrl(item.image) }} style={h.categoryImage} /> : <Text style={h.categoryLetter}>{item.id ? item.name.slice(0, 1) : "▦"}</Text>}</View><Text numberOfLines={2} style={h.categoryName}>{item.name}</Text></Pressable>)}</View>
         {!query && !category && !selectedQuick && <><SectionTitle title="Around your campus" action={`${data?.vendors.length || 0} shops`} /><ScrollView horizontal showsHorizontalScrollIndicator={false}>{data?.vendors.map((vendor) => <Pressable key={vendor.id} onPress={() => router.push(`/vendor/${vendor.id}`)} style={({ pressed }) => [h.shop, pressed && h.pressedCard]}>{vendor.coverImage || vendor.logo ? <Image source={{ uri: mediaUrl(vendor.coverImage || vendor.logo) }} resizeMode="cover" style={h.shopImage} /> : <View style={[h.shopImage, h.shopPlaceholder]}><Text style={h.shopInitial}>{vendor.name.slice(0, 1)}</Text></View>}<View style={{ padding: 12 }}><Text numberOfLines={1} style={s.h3}>{vendor.name}</Text><Text style={s.muted}>{vendor.rating ? `★ ${vendor.rating.toFixed(1)} · ` : ""}{vendor.preparationMinutes} min preparation</Text><Text style={[h.open, { color: vendor.acceptingOrders ? colors.success : colors.muted }]}>{vendor.acceptingOrders ? "● Accepting orders" : "● Currently closed"}</Text></View></Pressable>)}</ScrollView>{data && !data.vendors.some((item) => item.acceptingOrders) && <Notice text="Currently no vendors are accepting orders." />}</>}
         <SectionTitle title={query ? "Search results" : category ? data?.categories.find((item) => item.id === category)?.name || "Category" : selectedQuick ? "Filtered campus finds" : "Fresh finds for you"} action={query || category || selectedQuick ? "Clear filters" : `${data?.total || 0} items`} onPress={query || category || selectedQuick ? showAllProducts : undefined} />
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>{[["NAME", "Recommended"], ["PRICE_ASC", "Price: low to high"], ["PRICE_DESC", "Price: high to low"], ["NEWEST", "Newest"]].map(([value, label]) => <Pressable key={value} accessibilityRole="button" accessibilityState={{ selected: !selectedQuick && sort === value }} style={({ pressed }) => [s.chip, !selectedQuick && sort === value && s.selected, pressed && h.pressed]} onPress={() => { setQuick(""); setQuickTouched(false); setSort(value as Sort); }}><Text style={h.sortText}>{label}</Text></Pressable>)}</ScrollView>

@@ -1,101 +1,227 @@
-import { PasswordEye } from "./password-eye";
-import { Inter_400Regular, Inter_500Medium } from "@expo-google-fonts/inter";
-import { PlusJakartaSans_600SemiBold, PlusJakartaSans_700Bold, PlusJakartaSans_800ExtraBold, useFonts } from "@expo-google-fonts/plus-jakarta-sans";
+import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
+import { ArrowRight, ChevronLeft, LockKeyhole, Mail, Sparkles } from "lucide-react-native";
+import { useState, type ReactNode } from "react";
+import {
+  ActivityIndicator,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  type TextInputProps,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Brand } from "./brand";
-import { campuses, login, register, requestRegistrationOtp, universities, type Campus, type University } from "./api";
+import { login } from "./api";
+import { AuthLogo } from "./auth-logo";
+import { authColors, authFonts, authGradients } from "./auth-theme";
+import { PasswordEye } from "./password-eye";
 import { useSession } from "./session";
 
 type Role = "STUDENT" | "VENDOR";
-const font = { regular: "Inter_400Regular", medium: "Inter_500Medium", semi: "PlusJakartaSans_600SemiBold", bold: "PlusJakartaSans_700Bold", extra: "PlusJakartaSans_800ExtraBold" };
 
-function GlassField({ label, icon, right, onFocus, onBlur, style, ...props }: TextInputProps & { label: string; icon: string; right?: ReactNode }) {
+function AuthField({ label, icon, right, onFocus, onBlur, ...props }: TextInputProps & { label: string; icon: ReactNode; right?: ReactNode }) {
   const [focused, setFocused] = useState(false);
-  return <View style={a.field}><Text style={a.label}>{label}</Text><View style={[a.inputShell, focused && a.inputFocused]}><Text style={[a.fieldIcon, focused && a.fieldIconFocused, props.keyboardType === "phone-pad" && { width: 40, fontSize: 14 }]}>{props.keyboardType === "phone-pad" ? "+91" : icon}</Text><TextInput {...props} style={[a.input, !!right && { paddingRight: 58 }, props.multiline && { minHeight: 82, textAlignVertical: "top" }, style]} accessibilityLabel={label} placeholderTextColor="#87909D" selectionColor="#D94F32" cursorColor="#D94F32" onFocus={(event) => { setFocused(true); onFocus?.(event); }} onBlur={(event) => { setFocused(false); onBlur?.(event); }} />{right && <View style={a.fieldRight}>{right}</View>}</View></View>;
+  return (
+    <View style={styles.field}>
+      <Text style={styles.label}>{label}</Text>
+      <View style={[styles.inputShell, focused && styles.inputShellFocused]}>
+        <View style={styles.inputIcon}>{icon}</View>
+        <TextInput
+          {...props}
+          accessibilityLabel={label}
+          placeholderTextColor={authColors.muted}
+          selectionColor={authColors.inputActive}
+          cursorColor={authColors.inputActive}
+          style={[styles.input, right ? styles.inputWithAction : undefined]}
+          onFocus={(event) => {
+            setFocused(true);
+            onFocus?.(event);
+          }}
+          onBlur={(event) => {
+            setFocused(false);
+            onBlur?.(event);
+          }}
+        />
+        {right ? <View style={styles.fieldAction}>{right}</View> : null}
+      </View>
+    </View>
+  );
 }
 
 export function AuthScreen({ mode }: { mode: "login" | "register" }) {
+  void mode;
   const params = useLocalSearchParams<{ role?: string }>();
-  const initialRole: Role = params.role === "VENDOR" ? "VENDOR" : "STUDENT";
-  const creating = mode === "register";
-  const [fontsLoaded, fontError] = useFonts({ Inter_400Regular, Inter_500Medium, PlusJakartaSans_600SemiBold, PlusJakartaSans_700Bold, PlusJakartaSans_800ExtraBold });
-  const role: Role = initialRole;
+  const role: Role = params.role === "VENDOR" ? "VENDOR" : "STUDENT";
   const vendor = role === "VENDOR";
-  const [name, setName] = useState(""); const [email, setEmail] = useState(""); const [phone, setPhone] = useState(""); const [password, setPassword] = useState("");
-  const [shopName, setShopName] = useState(""); const [address, setAddress] = useState(""); const [description, setDescription] = useState("");
-  const [unis, setUnis] = useState<University[]>([]); const [sites, setSites] = useState<Campus[]>([]); const [uni, setUni] = useState(""); const [campus, setCampus] = useState(""); const [search, setSearch] = useState("");
-  const [universityMenuOpen, setUniversityMenuOpen] = useState(false); const [showPassword, setShowPassword] = useState(false); const [error, setError] = useState(""); const [universityError, setUniversityError] = useState(""); const [busy, setBusy] = useState(false); const [loading, setLoading] = useState(creating);
-  const [registrationStage, setRegistrationStage] = useState<"details" | "otp">("details"); const [otp, setOtp] = useState(""); const [otpChallenge, setOtpChallenge] = useState(""); const [verificationComplete, setVerificationComplete] = useState(false);
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
   const { signIn } = useSession();
-  const selectedUniversity = useMemo(() => unis.find((item) => item.id === uni), [uni, unis]);
-  const matchingUniversities = useMemo(() => unis.filter((item) => item.name.toLowerCase().includes(search.trim().toLowerCase())), [unis, search]);
 
-  const loadUniversities = useCallback(async () => { setLoading(true); setUniversityError(""); try { setUnis(await universities()); } catch (caught) { setUniversityError(caught instanceof Error ? caught.message : "Could not load universities."); } finally { setLoading(false); } }, []);
-  useEffect(() => { if (!creating) { setLoading(false); return; } void loadUniversities(); }, [creating, loadUniversities]);
-  useEffect(() => { let active = true; setCampus(""); setSites([]); if (!uni) return; campuses(uni).then((rows) => { if (!active) return; setSites(rows); if (rows.length === 1) setCampus(rows[0].id); }).catch((caught) => active && setError(caught.message)); return () => { active = false; }; }, [uni]);
-
-  function validateDetails() {
-    if (!name.trim() || !phone.trim() || !email.trim()) { setError("Complete your name, phone number and email address."); return false; }
-    if (!/^\d{10}$/.test(phone)) { setError("Enter a valid 10-digit phone number."); return false; }
-    if (!uni || !campus) { setError("Select your university and campus."); return false; }
-    if (password.length < 8) { setError("Password must contain at least 8 characters."); return false; }
-    if (vendor && (!shopName.trim() || !address.trim())) { setError("Enter your shop name and pickup address."); return false; }
-    return true;
-  }
-  async function requestOtp() { if (!validateDetails()) return; setBusy(true); setError(""); try { const result = await requestRegistrationOtp(phone.trim(), role); setOtpChallenge(result.challenge); setOtp(result.demoOtp || ""); setRegistrationStage("otp"); } catch (caught) { setError(caught instanceof Error ? caught.message : "Could not send the verification code."); } finally { setBusy(false); } }
   async function submit() {
-    if (busy) return; Keyboard.dismiss();
-    if (creating && registrationStage === "details") return void requestOtp();
-    if (creating && (!/^\d{6}$/.test(otp) || !otpChallenge)) return setError("Enter the six-digit verification code.");
-    if (!creating && (!email.trim() || !password)) return setError("Enter your email or mobile number and password.");
-    setBusy(true); setError("");
+    if (busy) return;
+    Keyboard.dismiss();
+    if (!identifier.trim() || !password) {
+      setError("Enter your email or mobile number and password.");
+      return;
+    }
+    setBusy(true);
+    setError("");
     try {
-      const result = creating ? await register({ name, email, password, phone, universityId: uni, campusId: campus, otp, otpChallenge, ...(vendor ? { shopName, address, description } : {}) }, vendor) : await login(email, password);
-      if (!['STUDENT', 'VENDOR'].includes(result.user.role)) throw new Error("Use the admin panel for this account.");
+      const result = await login(identifier.trim(), password);
+      if (!["STUDENT", "VENDOR"].includes(result.user.role)) throw new Error("Use the admin panel for this account.");
       if (result.user.role !== role) throw new Error(`This is a ${result.user.role.toLowerCase()} account. Choose that role to sign in.`);
-      if (creating) {
-        setVerificationComplete(true);
-        await new Promise((resolve) => setTimeout(resolve, 650));
-      }
-      await signIn(result); router.replace("/(tabs)/home");
-    } catch (caught) { setError(caught instanceof Error ? caught.message : "Please try again."); } finally { setBusy(false); }
+      await signIn(result);
+      router.replace("/(tabs)/home");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Please try again.");
+    } finally {
+      setBusy(false);
+    }
   }
-  if (!fontsLoaded && !fontError) return <SafeAreaView style={a.safe}><ActivityIndicator color="#FFB800" style={{ flex: 1 }} /></SafeAreaView>;
-  const panelTitle = creating ? registrationStage === "otp" ? "Verify your mobile" : vendor ? "Let’s grow your shop." : "Your campus starts here." : vendor ? "Welcome back, vendor." : "Good to see you again.";
-  const panelSubtitle = creating ? registrationStage === "otp" ? `Enter the six-digit code sent to +91 ${phone}.` : vendor ? "Start receiving campus student orders." : "Create an account for food, essentials and more." : vendor ? "Access canteen orders and store management." : "Sign in to access campus deliveries.";
-  const action = creating ? registrationStage === "details" ? "Send verification code" : vendor ? "Verify & submit store" : "Verify & create account" : vendor ? "Log in to your shop" : "Log in as student";
-  return <SafeAreaView style={a.safe}><KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={Platform.OS === "ios" ? 12 : 0}><ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" automaticallyAdjustKeyboardInsets contentContainerStyle={a.scroll}><View style={a.topGlow} /><View style={a.brand}><Pressable accessibilityRole="button" accessibilityLabel="Back to role selection" hitSlop={12} onPress={() => router.replace("/welcome")} style={a.backButton}><Text style={a.backIcon}>‹</Text></Pressable><Brand size={56} /><Text style={a.brandName}>Campus <Text style={a.brandAccent}>Drop</Text></Text><Text style={a.tagline}>Your everyday, a little easier.</Text></View>
-    <View style={a.selectedRole}><Text style={[a.selectedRoleText, { color: vendor ? '#D94F32' : '#D94F32' }]}>{vendor ? 'VENDOR ACCOUNT' : 'STUDENT ACCOUNT'}</Text></View>
-    <View style={a.panel}>
-      {creating && <View style={a.steps}><Text style={[a.step, registrationStage === "details" && a.stepActive]}>01  Your details</Text><View style={a.stepLine} /><Text style={[a.step, registrationStage === "otp" && a.stepActive]}>02  Verify mobile</Text></View>}
-      <Text style={a.panelTitle}>{panelTitle}</Text><Text style={a.panelSubtitle}>{panelSubtitle}</Text>
-      {creating && registrationStage === "details" && <><GlassField label={vendor ? "OWNER / MANAGER NAME" : "FULL NAME"} icon="◉" value={name} onChangeText={setName} placeholder="Your full name" /><GlassField label="FIND YOUR UNIVERSITY" icon="⌂" value={search} placeholder="Search and select" onFocus={() => setUniversityMenuOpen(true)} onChangeText={(value) => { setSearch(value); setUniversityMenuOpen(true); if (selectedUniversity && value !== selectedUniversity.name) setUni(""); }} right={<Pressable accessibilityRole="button" onPress={() => setUniversityMenuOpen((value) => !value)}><Text style={a.actionIcon}>{universityMenuOpen ? "⌃" : "⌄"}</Text></Pressable>} />
-        {universityMenuOpen && <View style={a.dropdown}>{loading ? <View style={a.dropdownState}><ActivityIndicator size="small" color="#93C5FD" /><Text style={a.empty}>Loading universities...</Text></View> : universityError ? <Pressable onPress={() => void loadUniversities()} style={a.dropdownState}><Text style={a.empty}>Could not load the university list. Tap to retry.</Text></Pressable> : <ScrollView nestedScrollEnabled keyboardShouldPersistTaps="handled" style={{ maxHeight: 180 }}>{matchingUniversities.map((item) => <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={`Select ${item.name}`} onPress={() => { setUni(item.id); setSearch(item.name); setUniversityMenuOpen(false); Keyboard.dismiss(); }} style={a.dropdownRow}><Text style={a.dropdownName}>{item.name}</Text><Text style={a.dropdownMeta}>{[item.city, item.state].filter(Boolean).join(", ")}</Text></Pressable>)}{!matchingUniversities.length && <Text style={a.empty}>No matching university found.</Text>}</ScrollView>}</View>}
-        {!!selectedUniversity && <View style={a.selectedUniversity}><Text style={a.selectedText}>Selected: {selectedUniversity.name}</Text><Pressable onPress={() => { setUni(""); setSearch(""); setUniversityMenuOpen(true); }}><Text style={a.change}>Change</Text></Pressable></View>}
-        {!!uni && <View style={a.campusGroup}><Text style={a.label}>CAMPUS</Text>{sites.map((item) => <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={`Select campus ${item.name}`} onPress={() => setCampus(item.id)} style={[a.campusChoice, campus === item.id && a.campusSelected]}><Text style={a.campusText}>{item.name}</Text><Text style={a.campusTick}>{campus === item.id ? "✓" : "›"}</Text></Pressable>)}{!sites.length && <Text style={a.hint}>Loading available campuses…</Text>}</View>}
-        {vendor && <><GlassField label="STORE / CANTEEN NAME" icon="▦" value={shopName} onChangeText={setShopName} placeholder="Campus Central Bakery" /><GlassField label="CANTEEN BLOCK / LOCATION" icon="⌖" value={address} onChangeText={setAddress} placeholder="Food court, Block C" /><GlassField label="SHOP DESCRIPTION" icon="≡" value={description} onChangeText={setDescription} placeholder="What do you sell?" multiline /></>}
-        <GlassField label="EMAIL ADDRESS" icon="✉" value={email} onChangeText={setEmail} placeholder="you@university.edu" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} autoComplete="email" /><GlassField label="PHONE NUMBER" icon="◔" value={phone} onChangeText={value => setPhone(value.replace(/\D/g, "").slice(0, 10))} maxLength={10} placeholder="9876543210" keyboardType="phone-pad" autoComplete="tel" /><GlassField label="CREATE PASSWORD" icon="▣" value={password} onChangeText={setPassword} placeholder="At least 8 characters" secureTextEntry={!showPassword} autoComplete="new-password" right={<PasswordEye visible={showPassword} onToggle={()=>setShowPassword(current=>!current)}/>} /></>}
-      {creating && registrationStage === "otp" && <><GlassField label="VERIFICATION CODE" icon="✦" value={otp} onChangeText={setOtp} placeholder="Enter 6-digit code" keyboardType="number-pad" maxLength={6} autoComplete="one-time-code" />{verificationComplete && <View style={a.verified}><Text style={a.verifiedTick}>✓</Text><Text style={a.verifiedText}>Mobile number verified successfully</Text></View>}<Pressable onPress={() => { setRegistrationStage("details"); setOtp(""); setOtpChallenge(""); setVerificationComplete(false); }}><Text style={a.backLink}>← Change registration details</Text></Pressable></>}
-      {!creating && <><GlassField label="EMAIL OR MOBILE NUMBER" icon="✉" value={email} onChangeText={setEmail} placeholder="Email or 10-digit mobile number" keyboardType="email-address" autoCapitalize="none" autoCorrect={false} autoComplete="email" /><GlassField label="PASSWORD" icon="▣" value={password} onChangeText={setPassword} placeholder="••••••••" secureTextEntry={!showPassword} autoComplete="current-password" right={<PasswordEye visible={showPassword} onToggle={()=>setShowPassword(current=>!current)}/>} /><Pressable onPress={() => router.push({ pathname: "/forgot-password", params: { role } })} style={{ alignSelf: "flex-end" }}><Text style={a.forgot}>Forgot password?</Text></Pressable></>}
-      {creating && registrationStage === "details" && <View style={a.security}><Text style={a.securityIcon}>◈</Text><Text style={a.securityText}>{vendor ? "Vendor accounts are reviewed by Campus Drop before store activation." : "Your OTP verifies this mobile number before your campus account is created."}</Text></View>}
-      <Pressable accessibilityRole="button" disabled={busy} onPress={() => void submit()} style={({ pressed }) => [a.primary, busy && { opacity: 0.55 }, pressed && { transform: [{ scale: 0.98 }] }]}>{busy ? <ActivityIndicator color="#FFFFFF" accessibilityLabel="Please wait" /> : <Text style={a.primaryText}>{action}  →</Text>}</Pressable>
-      {!!error && <View accessibilityLiveRegion="polite" style={a.error}><Text style={a.errorText}>{error}</Text></View>}
-    </View>
-  </ScrollView></KeyboardAvoidingView></SafeAreaView>;
+
+  return (
+    <SafeAreaView style={styles.safe}>
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+        <ScrollView
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag"
+          automaticallyAdjustKeyboardInsets
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scroll}
+        >
+          <View pointerEvents="none" style={styles.violetGlow} />
+          <View pointerEvents="none" style={styles.mangoGlow} />
+
+          <Pressable accessibilityRole="button" accessibilityLabel="Back to role selection" onPress={() => router.replace("/welcome")} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
+            <ChevronLeft size={20} color={authColors.text} strokeWidth={2.4} />
+            <Text style={styles.backText}>Back</Text>
+          </Pressable>
+
+          <View style={styles.header}>
+            <View style={styles.headerCopy}>
+              <View style={styles.badge}>
+                <Sparkles size={14} color="#FF9F64" />
+                <Text style={styles.badgeText}>{vendor ? "Campus seller workspace" : "Instant college delivery"}</Text>
+              </View>
+              <Text style={styles.kicker}>Welcome back to</Text>
+              <Text accessibilityRole="header" style={styles.title}>Campus Drop</Text>
+            </View>
+            <AuthLogo width={116} />
+          </View>
+
+          <Text style={styles.subtitle}>
+            {vendor
+              ? "Manage campus orders, products and your store from one friendly workspace."
+              : "Dorm cravings or late-night study snacks? Your campus favourites are ready."}
+          </Text>
+
+          <View style={styles.rolePill}>
+            <LinearGradient colors={authGradients.toggle} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.rolePillActive}>
+              <Text style={styles.rolePillText}>{vendor ? "Vendor account" : "Student account"}</Text>
+            </LinearGradient>
+          </View>
+
+          <View style={styles.form}>
+            <AuthField
+              label="EMAIL OR MOBILE NUMBER"
+              icon={<Mail size={19} color="#718096" />}
+              value={identifier}
+              onChangeText={(value) => { setIdentifier(value); setError(""); }}
+              placeholder="Email or 10-digit mobile number"
+              autoCapitalize="none"
+              autoCorrect={false}
+              autoComplete="email"
+              returnKeyType="next"
+            />
+            <AuthField
+              label="PASSWORD"
+              icon={<LockKeyhole size={19} color={authColors.inputActive} />}
+              value={password}
+              onChangeText={(value) => { setPassword(value); setError(""); }}
+              placeholder="Enter password"
+              secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              autoComplete="current-password"
+              returnKeyType="done"
+              onSubmitEditing={() => void submit()}
+              right={<PasswordEye visible={showPassword} color={authColors.inputActive} onToggle={() => setShowPassword((current) => !current)} />}
+            />
+            <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: "/forgot-password", params: { role } })} style={({ pressed }) => [styles.forgotButton, pressed && styles.pressed]}>
+              <Text style={styles.forgotText}>Forgot password?</Text>
+            </Pressable>
+          </View>
+
+          {error ? <View accessibilityLiveRegion="polite" style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
+
+          <Pressable accessibilityRole="button" disabled={busy} onPress={() => void submit()} style={({ pressed }) => [styles.ctaOuter, pressed && styles.ctaPressed, busy && styles.disabled]}>
+            <LinearGradient colors={authGradients.cta} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.cta}>
+              {busy ? <ActivityIndicator color="#FFFFFF" accessibilityLabel="Signing in" /> : <>
+                <Text style={styles.ctaText}>{vendor ? "Log in to vendor account" : "Log in"}</Text>
+                <ArrowRight size={21} color="#FFFFFF" strokeWidth={2.5} />
+                <View style={styles.ctaHighlight} />
+              </>}
+            </LinearGradient>
+          </Pressable>
+
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>{vendor ? "New seller on campus? " : "New to the campus? "}</Text>
+            <Pressable accessibilityRole="button" onPress={() => router.push({ pathname: "/register", params: { role } })}>
+              <Text style={styles.footerLink}>{vendor ? "Create vendor account" : "Join the Drop Club"}</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
+  );
 }
 
-const a = StyleSheet.create({
-  modeTabs:{flexDirection:"row",backgroundColor:"#F5F3EF",borderRadius:13,padding:4,marginBottom:25},
-  modeTab:{flex:1,minHeight:44,alignItems:"center",justifyContent:"center",borderRadius:10},
-  modeTabActive:{backgroundColor:"#FFFFFF",shadowColor:"#182C35",shadowOpacity:.07,shadowRadius:4,shadowOffset:{width:0,height:2},elevation:1},
-  modeTabText:{fontFamily:font.semi,fontSize:12,color:"#747984"},
-  modeTabTextActive:{color:"#182C35"},
-  steps:{flexDirection:"row",alignItems:"center",gap:10,marginBottom:19},
-  step:{fontFamily:font.semi,fontSize:10,color:"#8A8E98"},
-  stepActive:{color:"#D94F32"},
-  stepLine:{flex:1,height:1,backgroundColor:"#EAE5DF"},
-  safe:{flex:1,backgroundColor:"#F8F7F3"}, scroll:{flexGrow:1,paddingHorizontal:20,paddingTop:14,paddingBottom:36,width:"100%",maxWidth:520,alignSelf:"center"}, topGlow:{position:"absolute",width:350,height:350,borderRadius:220,backgroundColor:"#F8ECE2",top:-180,right:-130}, brand:{alignItems:"center",marginTop:8,marginBottom:16,position:"relative",width:"100%"}, backButton:{position:"absolute",left:0,top:4,width:40,height:40,borderRadius:20,backgroundColor:"#FFF",borderWidth:1,borderColor:"#F0E4DD",alignItems:"center",justifyContent:"center",zIndex:2},backIcon:{color:"#182C35",fontSize:32,lineHeight:32,fontFamily:font.regular,marginTop:-3},brandName:{fontFamily:font.extra,fontSize:25,color:"#182C35",letterSpacing:-.8,marginTop:8},brandAccent:{color:"#D94F32"},tagline:{fontFamily:font.medium,fontSize:11,color:"#78828A",marginTop:2},selectedRole:{alignSelf:"center",borderRadius:99,backgroundColor:"#FFF0E9",borderColor:"#F7C8B9",borderWidth:1,paddingHorizontal:12,paddingVertical:6,marginBottom:16},selectedRoleText:{fontFamily:font.bold,fontSize:10,letterSpacing:1.1},panel:{backgroundColor:"#FFF",borderWidth:1,borderColor:"#EAE9E3",borderRadius:28,padding:24,shadowColor:"#7A3C2D",shadowOpacity:.08,shadowRadius:20,shadowOffset:{width:0,height:8},elevation:3},panelTitle:{fontFamily:font.extra,color:"#182C35",fontSize:25,letterSpacing:-.4},panelSubtitle:{fontFamily:font.regular,color:"#78828A",fontSize:13,lineHeight:21,marginTop:8,marginBottom:24},field:{marginBottom:14},label:{color:"#78828A",fontFamily:font.bold,fontSize:10,letterSpacing:1,marginBottom:7},inputShell:{minHeight:54,borderRadius:14,borderWidth:1,borderColor:"#EAE9E3",backgroundColor:"#FCFCFA",flexDirection:"row",alignItems:"center",paddingHorizontal:12},inputFocused:{borderColor:"#D94F32",backgroundColor:"#FFF",borderWidth:1.5},fieldIcon:{color:"#9398A4",fontSize:16,width:24,textAlign:"center",marginRight:7},fieldIconFocused:{color:"#D94F32"},input:{flex:1,color:"#182C35",fontSize:14,fontFamily:font.medium,paddingVertical:15,outlineWidth:0,outlineColor:"transparent"},fieldRight:{position:"absolute",right:12,top:0,bottom:0,justifyContent:"center"},actionIcon:{color:"#D94F32",fontFamily:font.bold,fontSize:12,padding:5},dropdown:{borderRadius:14,overflow:"hidden",borderWidth:1,borderColor:"#EAE9E3",backgroundColor:"#FFF",marginTop:-7,marginBottom:12},dropdownRow:{paddingHorizontal:14,paddingVertical:12,borderBottomWidth:1,borderBottomColor:"#F5EEEA"},dropdownState:{minHeight:66,justifyContent:"center",alignItems:"center",paddingHorizontal:12},dropdownName:{color:"#182C35",fontFamily:font.semi,fontSize:12},dropdownMeta:{color:"#78828A",fontFamily:font.regular,fontSize:10,marginTop:3},empty:{color:"#78828A",fontFamily:font.medium,fontSize:12,textAlign:"center",padding:13},selectedUniversity:{borderRadius:12,borderWidth:1,borderColor:"#F7C8B9",backgroundColor:"#FFF4EE",padding:11,flexDirection:"row",justifyContent:"space-between",marginTop:-5,marginBottom:12},selectedText:{color:"#913722",fontFamily:font.semi,fontSize:11,flex:1},change:{color:"#D94F32",fontFamily:font.bold,fontSize:11},campusGroup:{marginBottom:13},campusChoice:{borderWidth:1,borderColor:"#EAE9E3",backgroundColor:"#FCFCFA",borderRadius:13,paddingHorizontal:13,paddingVertical:12,flexDirection:"row",justifyContent:"space-between",marginTop:7},campusSelected:{borderColor:"#D94F32",backgroundColor:"#FFF0E9"},campusText:{color:"#182C35",fontFamily:font.semi,fontSize:12},campusTick:{color:"#D94F32",fontFamily:font.bold,fontSize:16},hint:{color:"#78828A",fontFamily:font.medium,fontSize:11,marginTop:6},forgot:{color:"#D94F32",fontFamily:font.bold,fontSize:11,marginBottom:12},backLink:{color:"#D94F32",fontFamily:font.bold,fontSize:11,marginTop:-2,marginBottom:10},verified:{flexDirection:"row",alignItems:"center",gap:8,backgroundColor:"#ECFDF3",borderColor:"#86EFAC",borderWidth:1,borderRadius:12,padding:11,marginTop:-4,marginBottom:10},verifiedTick:{width:20,height:20,borderRadius:10,textAlign:"center",lineHeight:20,backgroundColor:"#239B68",color:"#FFF",fontFamily:font.bold},verifiedText:{color:"#247B55",fontFamily:font.bold,fontSize:11},security:{backgroundColor:"#FFF8E9",borderWidth:1,borderColor:"#F6DFAB",borderRadius:13,padding:12,flexDirection:"row",gap:8,marginBottom:8},securityIcon:{color:"#E59B00",fontSize:16},securityText:{color:"#76613A",fontFamily:font.medium,fontSize:10,lineHeight:14,flex:1},primary:{minHeight:55,borderRadius:14,justifyContent:"center",alignItems:"center",backgroundColor:"#18323D",marginTop:9,shadowColor:"#D94F32",shadowOpacity:.28,shadowRadius:14,shadowOffset:{width:0,height:7},elevation:5},primaryText:{color:"#FFF",fontFamily:font.bold,fontSize:13},error:{backgroundColor:"#FFF0F0",borderWidth:1,borderColor:"#F5C2C7",borderRadius:13,padding:12,marginTop:12},errorText:{color:"#B42318",fontFamily:font.medium,fontSize:11,lineHeight:16},switchRow:{marginTop:22,flexDirection:"row",flexWrap:"wrap",justifyContent:"center",alignItems:"center",rowGap:8},switchText:{color:"#78828A",fontFamily:font.medium,fontSize:11},switchLink:{color:"#D94F32",fontFamily:font.bold,fontSize:11},roleHeader:{flexDirection:"row",alignItems:"center",justifyContent:"space-between",paddingHorizontal:4,marginBottom:8},roleEyebrow:{color:"#78828A",fontFamily:font.extra,fontSize:10,letterSpacing:1.3},roleBadge:{fontFamily:font.bold,fontSize:10,paddingHorizontal:8,paddingVertical:4,borderRadius:12,borderWidth:1,backgroundColor:"#FFF0E9"},roleRow:{flexDirection:"row",gap:12,marginBottom:18},roleCard:{flex:1,minHeight:112,padding:14,borderRadius:17,backgroundColor:"#FFF",borderWidth:1,borderColor:"#F0E4DD"},roleCardActive:{backgroundColor:"#FFF4EE",shadowColor:"#D94F32",shadowOpacity:.15,shadowRadius:10,shadowOffset:{width:0,height:4},elevation:2},roleIcon:{width:36,height:36,borderRadius:11,justifyContent:"center",alignItems:"center",marginBottom:8},roleIconText:{color:"white",fontSize:18,fontFamily:font.extra},roleTitle:{color:"#182C35",fontSize:14,fontFamily:font.bold},roleDescription:{color:"#78828A",fontSize:10,lineHeight:14,marginTop:3,fontFamily:font.medium},
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  safe: { flex: 1, backgroundColor: authColors.background },
+  scroll: { flexGrow: 1, width: "100%", maxWidth: 560, alignSelf: "center", paddingHorizontal: 24, paddingTop: 12, paddingBottom: 38 },
+  violetGlow: { position: "absolute", width: 260, height: 260, borderRadius: 130, backgroundColor: "rgba(168,85,247,0.08)", top: -120, right: -100 },
+  mangoGlow: { position: "absolute", width: 220, height: 220, borderRadius: 110, backgroundColor: "rgba(255,151,82,0.10)", bottom: 40, left: -150 },
+  backButton: { alignSelf: "flex-start", minHeight: 44, flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 11, borderRadius: 16, backgroundColor: "rgba(255,255,255,0.78)", borderWidth: 1, borderColor: authColors.inputBorder },
+  backText: { color: authColors.text, fontFamily: authFonts.bold, fontSize: 13 },
+  pressed: { opacity: 0.72 },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 19, marginBottom: 12 },
+  headerCopy: { flex: 1 },
+  badge: { flexDirection: "row", alignItems: "center", alignSelf: "flex-start", gap: 6, backgroundColor: "#E8EEDF", paddingVertical: 5, paddingHorizontal: 11, borderRadius: 16, marginBottom: 10 },
+  badgeText: { color: authColors.secondary, fontFamily: authFonts.bold, fontSize: 11 },
+  kicker: { color: authColors.secondary, fontFamily: authFonts.bold, fontSize: 21, letterSpacing: -0.2 },
+  title: { color: authColors.text, fontFamily: authFonts.extra, fontSize: 34, lineHeight: 40, letterSpacing: -0.8 },
+  subtitle: { color: authColors.secondary, fontFamily: authFonts.medium, fontSize: 14, lineHeight: 21, marginBottom: 20 },
+  rolePill: { backgroundColor: authColors.toggle, padding: 4, borderRadius: 24, marginBottom: 24 },
+  rolePillActive: { minHeight: 42, borderRadius: 20, alignItems: "center", justifyContent: "center", shadowColor: "#8B5CF6", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.24, shadowRadius: 6, elevation: 3 },
+  rolePillText: { color: "#FFFFFF", fontFamily: authFonts.bold, fontSize: 13 },
+  form: { gap: 14 },
+  field: { gap: 7 },
+  label: { color: authColors.secondary, fontFamily: authFonts.bold, fontSize: 11, letterSpacing: 0.7 },
+  inputShell: { minHeight: 58, flexDirection: "row", alignItems: "center", borderWidth: 1.2, borderColor: authColors.inputBorder, borderRadius: 20, backgroundColor: authColors.input, paddingHorizontal: 16, shadowColor: authColors.text, shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.04, shadowRadius: 8, elevation: 1 },
+  inputShellFocused: { borderColor: authColors.inputActive, borderWidth: 1.4, backgroundColor: "#FFFFFF" },
+  inputIcon: { width: 30, alignItems: "flex-start" },
+  input: { flex: 1, color: authColors.text, fontFamily: authFonts.medium, fontSize: 15, paddingVertical: 15, outlineWidth: 0, outlineColor: "transparent" },
+  inputWithAction: { paddingRight: 50 },
+  fieldAction: { position: "absolute", right: 8, top: 7, bottom: 7, justifyContent: "center" },
+  forgotButton: { alignSelf: "flex-end", minHeight: 36, justifyContent: "center", paddingHorizontal: 4 },
+  forgotText: { color: authColors.amber, fontFamily: authFonts.bold, fontSize: 13 },
+  errorBox: { backgroundColor: authColors.errorBackground, borderWidth: 1, borderColor: authColors.errorBorder, borderRadius: 14, padding: 12, marginTop: 12 },
+  errorText: { color: authColors.error, fontFamily: authFonts.medium, fontSize: 12, lineHeight: 18 },
+  ctaOuter: { borderRadius: 26, overflow: "hidden", marginTop: 18, shadowColor: "#A855F7", shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.34, shadowRadius: 14, elevation: 6 },
+  cta: { minHeight: 56, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 9 },
+  ctaText: { color: "#FFFFFF", fontFamily: authFonts.extra, fontSize: 17, letterSpacing: 0.4 },
+  ctaHighlight: { position: "absolute", right: 20, width: 26, height: 26, borderRadius: 13, backgroundColor: "rgba(255,255,255,0.22)" },
+  ctaPressed: { transform: [{ scale: 0.985 }], opacity: 0.9 },
+  disabled: { opacity: 0.62 },
+  footer: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", alignItems: "center", marginTop: 27 },
+  footerText: { color: authColors.secondary, fontFamily: authFonts.medium, fontSize: 13 },
+  footerLink: { color: authColors.link, fontFamily: authFonts.bold, fontSize: 13, textDecorationLine: "underline" },
 });

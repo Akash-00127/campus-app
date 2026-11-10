@@ -43,7 +43,7 @@ const c = StyleSheet.create({
   buttonDark: { backgroundColor: "#1A292E", borderColor: "#304247" },
   pressed: { opacity: .82, transform: [{ scale: .96 }] },
   iconWrap: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
-  mark: { width: 32, height: 32, borderRadius: 11, alignItems: "center", justifyContent: "center", backgroundColor: "#FFF0E9", overflow: "hidden" },
+  mark: { width: 32, height: 32, borderRadius: 11, alignItems: "center", justifyContent: "center", backgroundColor: "#F2EEFF", overflow: "hidden" },
   markDark: { backgroundColor: "#49342F" },
   markSpark: { width: 5, height: 5, borderRadius: 3, backgroundColor: "#F6B473", position: "absolute", right: 4, top: 4 },
   badge: { position: "absolute", right: -8, top: -6, minWidth: 19, height: 19, borderRadius: 10, paddingHorizontal: 4, alignItems: "center", justifyContent: "center", backgroundColor: colors.green, borderWidth: 2, borderColor: "#FFFFFF" },

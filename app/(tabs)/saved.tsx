@@ -33,7 +33,7 @@ export default function Saved() {
       <CartButton compact />
     </View>
     <View style={l.hero}>
-      <View style={l.heroIcon}><Heart size={24} color={colors.green} fill="#FFF0E9" /></View>
+      <View style={l.heroIcon}><Heart size={24} color={colors.green} fill="#F2EEFF" /></View>
       <View style={{ flex: 1 }}><Text style={l.heroTitle}>{saved.length ? `${saved.length} good ${saved.length === 1 ? "find" : "finds"}, kept close` : "A home for your favourites"}</Text><Text style={l.heroCopy}>Save anything you love, then add it to your cart whenever the craving hits.</Text></View>
     </View>
     {unavailable > 0 && <Notice text={`${unavailable} liked ${unavailable === 1 ? "item is" : "items are"} currently unavailable.`} />}

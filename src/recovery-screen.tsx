@@ -7,17 +7,18 @@ import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, Pressable,
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Brand } from "./brand";
 import { confirmPasswordReset, requestPasswordReset } from "./api";
+import { authColors } from "./auth-theme";
 
 const font = { regular: "Inter_400Regular", medium: "Inter_500Medium", semi: "PlusJakartaSans_600SemiBold", bold: "PlusJakartaSans_700Bold", extra: "PlusJakartaSans_800ExtraBold" };
 
 function RecoveryField({ label, icon, right, onFocus, onBlur, style, ...props }: TextInputProps & { label: string; icon: string; right?: ReactNode }) {
   const [focused, setFocused] = useState(false);
-  return <View style={r.field}><Text style={r.label}>{label}</Text><View style={[r.inputShell, focused && r.inputFocused]}><Text style={[r.icon, focused && r.iconFocused]}>{icon}</Text><TextInput {...props} style={[r.input, !!right && { paddingRight: 56 }, style]} placeholderTextColor="#7B8AA8" selectionColor="#D94F32" cursorColor="#D94F32" onFocus={(event) => { setFocused(true); onFocus?.(event); }} onBlur={(event) => { setFocused(false); onBlur?.(event); }} />{right && <View style={r.fieldRight}>{right}</View>}</View></View>;
+  return <View style={r.field}><Text style={r.label}>{label}</Text><View style={[r.inputShell, focused && r.inputFocused]}><Text style={[r.icon, focused && r.iconFocused]}>{icon}</Text><TextInput {...props} style={[r.input, !!right && { paddingRight: 56 }, style]} placeholderTextColor={authColors.muted} selectionColor={authColors.inputActive} cursorColor={authColors.inputActive} onFocus={(event) => { setFocused(true); onFocus?.(event); }} onBlur={(event) => { setFocused(false); onBlur?.(event); }} />{right && <View style={r.fieldRight}>{right}</View>}</View></View>;
 }
 
 function RecoveryShell({ children, title, subtitle }: { children: ReactNode; title: string; subtitle: string }) {
-  const [fontsLoaded] = useFonts({ PlusJakartaSans_400Regular, PlusJakartaSans_500Medium, PlusJakartaSans_600SemiBold, PlusJakartaSans_700Bold, PlusJakartaSans_800ExtraBold });
-  if (!fontsLoaded) return <SafeAreaView style={r.safe}><ActivityIndicator color="#D94F32" style={{ flex: 1 }} /></SafeAreaView>;
+  const [fontsLoaded] = useFonts({ Inter_400Regular, Inter_500Medium, PlusJakartaSans_600SemiBold, PlusJakartaSans_700Bold, PlusJakartaSans_800ExtraBold });
+  if (!fontsLoaded) return <SafeAreaView style={r.safe}><ActivityIndicator color={authColors.inputActive} style={{ flex: 1 }} /></SafeAreaView>;
   return <SafeAreaView style={r.safe}><KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={Platform.OS === "ios" ? 12 : 0}><ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" automaticallyAdjustKeyboardInsets contentContainerStyle={r.scroll}><View style={r.topGlow} /><View style={r.brand}><Pressable accessibilityRole="button" accessibilityLabel="Back to sign in" hitSlop={12} onPress={() => router.back()} style={r.backButton}><Text style={r.backIcon}>‹</Text></Pressable><Brand size={74} /><Text style={r.brandName}>Campus <Text style={r.brandAccent}>Drop</Text></Text><Text style={r.tagline}>Campus Delivery & Merchant Hub</Text></View><View style={r.badge}><Text style={r.badgeText}>ACCOUNT RECOVERY</Text></View><View style={r.panel}><Text style={r.title}>{title}</Text><Text style={r.subtitle}>{subtitle}</Text>{children}</View></ScrollView></KeyboardAvoidingView></SafeAreaView>;
 }
 
@@ -39,5 +40,37 @@ export function ResetPasswordScreen() {
 }
 
 const r = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: "#F8F7F3" }, scroll: { flexGrow: 1, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 44, width: "100%", maxWidth: 520, alignSelf: "center", backgroundColor: "#F8F7F3" }, topGlow: { position: "absolute", width: 340, height: 340, borderRadius: 200, backgroundColor: "#F0E5D6", opacity: .58, top: -160, right: -130 }, brand: { alignItems: "center", marginTop: 6, marginBottom: 20, position: "relative", width: "100%" }, backButton: { position: "absolute", left: 0, top: 4, width: 38, height: 38, borderRadius: 19, borderWidth: 1, borderColor: "#EAE9E3", backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", zIndex: 2 }, backIcon: { color: "#182C35", fontSize: 34, lineHeight: 34, fontFamily: font.regular, marginTop: -4 }, brandName: { fontFamily: font.extra, fontSize: 25, color: "#182C35", letterSpacing: -.8, marginTop: 8 }, brandAccent: { color: "#D94F32" }, tagline: { fontFamily: font.medium, fontSize: 11, color: "#78828A", marginTop: 2 }, badge: { alignSelf: "center", borderRadius: 99, backgroundColor: "#FFF0E9", borderColor: "#EAE9E3", borderWidth: 1, paddingHorizontal: 12, paddingVertical: 6, marginBottom: 16 }, badgeText: { color: "#D94F32", fontFamily: font.bold, fontSize: 10, letterSpacing: 1.1 }, panel: { backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#EAE9E3", borderRadius: 24, padding: 19, shadowColor: "#000", shadowOpacity: .04, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 5 }, title: { fontFamily: font.extra, color: "#182C35", fontSize: 27, letterSpacing: -.7 }, subtitle: { fontFamily: font.medium, color: "#78828A", fontSize: 13, lineHeight: 21, marginTop: 8, marginBottom: 24 }, field: { marginBottom: 13 }, label: { color: "#78828A", fontFamily: font.bold, fontSize: 10, letterSpacing: 1, marginBottom: 6 }, inputShell: { minHeight: 54, borderRadius: 12, borderWidth: 1, borderColor: "#EAE9E3", backgroundColor: "#FCFCFA", flexDirection: "row", alignItems: "center", paddingHorizontal: 12 }, inputFocused: { borderColor: "#D94F32", backgroundColor: "#FFFFFF", borderWidth: 1.5 }, icon: { color: "#78828A", fontSize: 16, width: 24, textAlign: "center", marginRight: 7 }, iconFocused: { color: "#D94F32" }, input: { flex: 1, color: "#182C35", fontSize: 12, fontFamily: font.medium, paddingVertical: 12, outlineWidth: 0, outlineColor: "transparent" }, fieldRight: { position: "absolute", right: 12, top: 0, bottom: 0, justifyContent: "center" }, actionIcon: { color: "#78828A", fontFamily: font.bold, fontSize: 19, padding: 5 }, security: { backgroundColor: "#F5F4EF", borderWidth: 1, borderColor: "#EAE9E3", borderRadius: 12, padding: 11, flexDirection: "row", gap: 8, marginBottom: 7 }, securityIcon: { color: "#D94F32", fontSize: 16 }, securityText: { color: "#78828A", fontFamily: font.medium, fontSize: 10, lineHeight: 14, flex: 1 }, primary: { minHeight: 55, borderRadius: 12, justifyContent: "center", alignItems: "center", backgroundColor: "#D94F32", marginTop: 8, shadowColor: "#D94F32", shadowOpacity: .15, shadowRadius: 14, shadowOffset: { width: 0, height: 7 }, elevation: 6 }, primaryText: { color: "#FFF", fontFamily: font.bold, fontSize: 12 }, message: { backgroundColor: "#FFF0ED", borderWidth: 1, borderColor: "rgba(248,113,113,.38)", borderRadius: 12, padding: 11, marginTop: 12 }, messageText: { color: "#A32B24", fontFamily: font.medium, fontSize: 11, lineHeight: 16 }, footerLink: { alignSelf: "center", marginTop: 17, padding: 5 }, footerText: { color: "#78828A", fontFamily: font.medium, fontSize: 11 }, footerAccent: { color: "#D94F32", fontFamily: font.bold },
+  safe: { flex: 1, backgroundColor: authColors.background },
+  scroll: { flexGrow: 1, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 44, width: "100%", maxWidth: 520, alignSelf: "center", backgroundColor: authColors.background },
+  topGlow: { position: "absolute", width: 340, height: 340, borderRadius: 200, backgroundColor: "#F2EEFF", opacity: .72, top: -160, right: -130 },
+  brand: { alignItems: "center", marginTop: 6, marginBottom: 20, position: "relative", width: "100%" },
+  backButton: { position: "absolute", left: 0, top: 4, width: 42, height: 42, borderRadius: 16, borderWidth: 1, borderColor: authColors.inputBorder, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center", zIndex: 2 },
+  backIcon: { color: authColors.text, fontSize: 34, lineHeight: 34, fontFamily: font.regular, marginTop: -4 },
+  brandName: { fontFamily: font.extra, fontSize: 25, color: authColors.text, letterSpacing: -.8, marginTop: 8 },
+  brandAccent: { color: authColors.inputActive },
+  tagline: { fontFamily: font.medium, fontSize: 11, color: authColors.secondary, marginTop: 2 },
+  badge: { alignSelf: "center", borderRadius: 99, backgroundColor: "#F2EEFF", borderColor: "#DED7F5", borderWidth: 1, paddingHorizontal: 12, paddingVertical: 6, marginBottom: 16 },
+  badgeText: { color: authColors.inputActive, fontFamily: font.bold, fontSize: 10, letterSpacing: 1.1 },
+  panel: { backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: authColors.inputBorder, borderRadius: 28, padding: 20, shadowColor: authColors.text, shadowOpacity: .07, shadowRadius: 20, shadowOffset: { width: 0, height: 9 }, elevation: 5 },
+  title: { fontFamily: font.extra, color: authColors.text, fontSize: 27, letterSpacing: -.7 },
+  subtitle: { fontFamily: font.medium, color: authColors.secondary, fontSize: 13, lineHeight: 21, marginTop: 8, marginBottom: 24 },
+  field: { marginBottom: 13 },
+  label: { color: authColors.secondary, fontFamily: font.bold, fontSize: 10, letterSpacing: 1, marginBottom: 6 },
+  inputShell: { minHeight: 56, borderRadius: 18, borderWidth: 1.2, borderColor: authColors.inputBorder, backgroundColor: authColors.input, flexDirection: "row", alignItems: "center", paddingHorizontal: 12 },
+  inputFocused: { borderColor: authColors.inputActive, backgroundColor: "#FFFFFF", borderWidth: 1.5 },
+  icon: { color: authColors.muted, fontSize: 16, width: 24, textAlign: "center", marginRight: 7 },
+  iconFocused: { color: authColors.inputActive },
+  input: { flex: 1, color: authColors.text, fontSize: 12, fontFamily: font.medium, paddingVertical: 12, outlineWidth: 0, outlineColor: "transparent" },
+  fieldRight: { position: "absolute", right: 12, top: 0, bottom: 0, justifyContent: "center" },
+  actionIcon: { color: authColors.secondary, fontFamily: font.bold, fontSize: 19, padding: 5 },
+  security: { backgroundColor: "#F7F3FF", borderWidth: 1, borderColor: "#DED7F5", borderRadius: 16, padding: 11, flexDirection: "row", gap: 8, marginBottom: 7 },
+  securityIcon: { color: authColors.inputActive, fontSize: 16 },
+  securityText: { color: authColors.secondary, fontFamily: font.medium, fontSize: 10, lineHeight: 14, flex: 1 },
+  primary: { minHeight: 56, borderRadius: 18, justifyContent: "center", alignItems: "center", backgroundColor: authColors.inputActive, marginTop: 8, shadowColor: authColors.inputActive, shadowOpacity: .18, shadowRadius: 14, shadowOffset: { width: 0, height: 7 }, elevation: 6 },
+  primaryText: { color: "#FFF", fontFamily: font.bold, fontSize: 12 },
+  message: { backgroundColor: authColors.errorBackground, borderWidth: 1, borderColor: authColors.errorBorder, borderRadius: 14, padding: 11, marginTop: 12 },
+  messageText: { color: authColors.error, fontFamily: font.medium, fontSize: 11, lineHeight: 16 },
+  footerLink: { alignSelf: "center", marginTop: 17, padding: 5 },
+  footerText: { color: authColors.secondary, fontFamily: font.medium, fontSize: 11 },
+  footerAccent: { color: authColors.inputActive, fontFamily: font.bold },
 });

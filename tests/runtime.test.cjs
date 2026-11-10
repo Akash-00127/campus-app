@@ -35,10 +35,10 @@ test('dark appearance persists independently for each account',async()=>{
 });
 test('dark palette adapts surfaces and text while preserving accent colors',()=>{
   const {darkThemeColor}=load('src/theme-colors.ts');
-  assert.equal(darkThemeColor('#FFFFFF','background'),'#18272C');
-  assert.equal(darkThemeColor('#EAE9E3','border'),'#304247');
-  assert.equal(darkThemeColor('#182C35','text'),'#F4F6F3');
-  assert.equal(darkThemeColor('#D94F32','text'),'#D94F32');
+  assert.equal(darkThemeColor('#FFFFFF','background'),'#17152E');
+  assert.equal(darkThemeColor('#E2EBD7','border'),'#3C3860');
+  assert.equal(darkThemeColor('#172033','text'),'#F7F5FF');
+  assert.equal(darkThemeColor('#7C3AED','text'),'#7C3AED');
   assert.equal(darkThemeColor('#1A292E','background'),'#1A292E');
 });
 test('dark appearance save reports storage failures',async()=>{

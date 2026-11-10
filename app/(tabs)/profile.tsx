@@ -604,7 +604,7 @@ export default function ProfileScreen() {
           </View>
           <Pressable accessibilityRole="button" accessibilityLabel="Edit profile" onPress={openPersonalDetails} style={({ pressed }) => [p.editProfileButton, darkMode && p.editProfileButtonDark, pressed && p.menuPressed]}><PencilLine size={15} color={darkMode ? "#FFD6C7" : colors.green} strokeWidth={2} /><Text style={[p.editProfileText, darkMode && { color: "#FFD6C7" }]}>Edit</Text></Pressable>
         </View>
-        <View style={[p.accountCampusLine, darkMode && p.accountCampusLineDark]}><MapPin size={15} color={darkMode ? "#FFAC8E" : colors.green} strokeWidth={2} /><Text numberOfLines={1} style={[p.accountCampusText, darkMode && p.darkSecondaryText]}>{profile?.campus?.name || "Campus not selected"}{profile?.university?.name ? ` · ${profile.university.name}` : ""}</Text></View>
+        <View style={[p.accountCampusLine, darkMode && p.accountCampusLineDark]}><MapPin size={15} color={darkMode ? "#C4B5FD" : colors.green} strokeWidth={2} /><Text numberOfLines={1} style={[p.accountCampusText, darkMode && p.darkSecondaryText]}>{profile?.campus?.name || "Campus not selected"}{profile?.university?.name ? ` · ${profile.university.name}` : ""}</Text></View>
       </View>
 
       <AccountSectionTitle title="My Account" subtitle="Your details, money and rewards" dark={darkMode} />
@@ -1064,7 +1064,7 @@ function PremiumMenuRow({
   onPress?: () => void;
 }) {
   const content = <>
-    <View style={[p.premiumIconWrap, dark && p.premiumIconWrapDark]}><Icon size={19} color={dark ? "#FFAC8E" : colors.green} strokeWidth={1.9} /></View>
+    <View style={[p.premiumIconWrap, dark && p.premiumIconWrapDark]}><Icon size={19} color={dark ? "#C4B5FD" : colors.green} strokeWidth={1.9} /></View>
     <View style={p.rowCopy}>
       <Text style={[p.premiumRowTitle, dark && p.darkPrimaryText]}>{title}</Text>
       <Text numberOfLines={1} style={[p.premiumRowSubtitle, dark && p.darkSecondaryText]}>{subtitle}</Text>
@@ -1097,13 +1097,13 @@ const p = StyleSheet.create({
   helpHeroCopy: { color: "#C8D5D2", fontSize: 12, lineHeight: 19, marginTop: 7, maxWidth: 300 },
   helpQueryCard: { backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E7E8E1", borderRadius: 23, padding: 18, marginBottom: 29, boxShadow: "0px 6px 20px rgba(27,50,52,.05)" },
   helpCardHeading: { flexDirection: "row", alignItems: "center", gap: 11, marginBottom: 19 },
-  helpCardIcon: { width: 40, height: 40, borderRadius: 13, backgroundColor: "#FFF0E9", alignItems: "center", justifyContent: "center" },
+  helpCardIcon: { width: 40, height: 40, borderRadius: 13, backgroundColor: "#F2EEFF", alignItems: "center", justifyContent: "center" },
   helpCardTitle: { color: "#172B32", fontSize: 15, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" },
   helpCardSubtitle: { color: "#7F8A89", fontSize: 10, lineHeight: 15, marginTop: 3 },
   helpFieldLabel: { color: "#788682", fontSize: 9, letterSpacing: 1, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold", marginBottom: 9 },
   helpChips: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 },
   helpChip: { borderWidth: 1, borderColor: "#E4E8E2", borderRadius: 11, paddingHorizontal: 13, paddingVertical: 9, backgroundColor: "#F7F8F4" },
-  helpChipActive: { backgroundColor: "#D94F32", borderColor: "#D94F32" },
+  helpChipActive: { backgroundColor: "#7C3AED", borderColor: "#7C3AED" },
   helpChipText: { color: "#5D7069", fontSize: 11, fontWeight: "700", fontFamily: "PlusJakartaSans_700Bold" },
   helpChipTextActive: { color: "#FFFFFF" },
   helpFormHint: { color: "#83908B", fontSize: 10, lineHeight: 15, textAlign: "center", marginTop: 10 },
@@ -1131,7 +1131,7 @@ const p = StyleSheet.create({
   contactList: { gap: 11, marginBottom: 15 },
   contactCard: { backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E7E8E1", borderRadius: 19, minHeight: 91, padding: 14, flexDirection: "row", alignItems: "center", gap: 12, boxShadow: "0px 4px 15px rgba(27,50,52,.04)" },
   contactIcon: { width: 48, height: 48, borderRadius: 15, alignItems: "center", justifyContent: "center" },
-  contactEmailIcon: { backgroundColor: "#FFF0E9" },
+  contactEmailIcon: { backgroundColor: "#F2EEFF" },
   contactWhatsAppIcon: { backgroundColor: "#E8F6EC" },
   contactPhoneIcon: { backgroundColor: "#EBF0FB" },
   contactCopy: { flex: 1, minWidth: 0 },
@@ -1154,7 +1154,7 @@ const p = StyleSheet.create({
   photoCloseText: { color: colors.ink, fontSize: 24, lineHeight: 27 },
   photoOption: { minHeight: 70, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 17, backgroundColor: "#FBFAF7", marginTop: 8, borderWidth: 1, borderColor: "#EFEDE7" },
   darkPhotoOption: { backgroundColor: "#1A292E", borderColor: "#304247" },
-  photoOptionIcon: { width: 43, height: 43, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: "#FFF0E9" },
+  photoOptionIcon: { width: 43, height: 43, borderRadius: 15, alignItems: "center", justifyContent: "center", backgroundColor: "#F2EEFF" },
   photoOptionPreview: { width: 34, height: 34, borderRadius: 12 },
   photoOptionTitle: { color: "#172033", fontSize: 12, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" },
   photoOptionCopy: { color: "#858D8E", fontSize: 9, marginTop: 3 },
@@ -1167,10 +1167,10 @@ const p = StyleSheet.create({
   accountSubtitle: { color: "#737B80", fontSize: 11, lineHeight: 18, marginTop: 4 },
   darkPrimaryText: { color: "#F4F6F3" },
   darkSecondaryText: { color: "#93A2A5" },
-  darkAccentText: { color: "#FFAC8E" },
+  darkAccentText: { color: "#C4B5FD" },
   accountProfileCard: { position: "relative", overflow: "hidden", borderRadius: 24, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#E5E7E2", padding: 18, marginBottom: 27, boxShadow: "0px 7px 22px rgba(23,32,51,.065)" },
   darkCard: { backgroundColor: "#1A292E", borderColor: "#293B40", boxShadow: "0px 7px 22px rgba(0,0,0,.16)" },
-  profileGlow: { position: "absolute", width: 165, height: 165, borderRadius: 83, backgroundColor: "#FFF0E9", right: -72, top: -82, opacity: .72 },
+  profileGlow: { position: "absolute", width: 165, height: 165, borderRadius: 83, backgroundColor: "#F2EEFF", right: -72, top: -82, opacity: .72 },
   profileGlowDark: { backgroundColor: "#53372F", opacity: .43 },
   accountProfileTop: { flexDirection: "row", alignItems: "center", gap: 13 },
   accountAvatar: { width: 68, height: 68, borderRadius: 34, alignItems: "center", justifyContent: "center", backgroundColor: colors.lime, borderWidth: 3, borderColor: "#FFFFFF", boxShadow: "0px 3px 12px rgba(217,79,50,.12)" },
@@ -1180,7 +1180,7 @@ const p = StyleSheet.create({
   accountName: { color: "#172033", fontSize: 18, lineHeight: 24, letterSpacing: -.4, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" },
   accountEmail: { color: "#737B80", fontSize: 10, marginTop: 2 },
   accountBadgeRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 },
-  accountRoleBadge: { borderRadius: 9, backgroundColor: "#FFF0E9", paddingHorizontal: 8, paddingVertical: 5 },
+  accountRoleBadge: { borderRadius: 9, backgroundColor: "#F2EEFF", paddingHorizontal: 8, paddingVertical: 5 },
   accountRoleBadgeDark: { backgroundColor: "#4B332D" },
   accountRoleText: { color: colors.green, fontSize: 7, letterSpacing: .7, fontWeight: "900", fontFamily: "PlusJakartaSans_800ExtraBold" },
   accountRoleTextDark: { color: "#FFB79C" },

@@ -282,7 +282,7 @@ function OrderCard({ order, detail, vendor, busy, open, cancelling, pin, reason,
 
 function ActionButton({ Icon, label, onPress, disabled, accent = false, danger = false }: { Icon: LucideIcon; label: string; onPress: () => void; disabled: boolean; accent?: boolean; danger?: boolean }) {
   const {darkMode}=useAppTheme();
-  const color = danger ? "#B64B3C" : accent ? (darkMode?"#FFAC8E":colors.green) : (darkMode?"#F4F6F3":colors.ink);
+  const color = danger ? "#B64B3C" : accent ? (darkMode?"#C4B5FD":colors.green) : (darkMode?"#F4F6F3":colors.ink);
   return <ThemeContent><Pressable accessibilityRole="button" disabled={disabled} onPress={onPress} style={({ pressed }) => [o.actionButton, accent && o.actionAccent, danger && o.actionDanger, disabled && o.disabled, pressed && !disabled && o.pressed]}><Icon size={14} color={color} strokeWidth={2} /><Text style={[o.actionText, { color }]}>{label}</Text></Pressable></ThemeContent>;
 }
 

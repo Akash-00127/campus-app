@@ -14,7 +14,7 @@ export default function Layout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: darkMode ? "#FFAC8E" : colors.green,
+        tabBarActiveTintColor: darkMode ? "#C4B5FD" : colors.green,
         tabBarInactiveTintColor: darkMode ? "#93A2A5" : colors.muted,
         tabBarStyle: {
           position: "absolute",
@@ -22,10 +22,10 @@ export default function Layout() {
           bottom: 14,
           height: 74,
           borderRadius: 26,
-          backgroundColor: darkMode ? "#18272C" : "#FFFFFF",
+          backgroundColor: darkMode ? "#1B1938" : "rgba(255,255,255,0.97)",
           borderTopWidth: 1,
-          borderColor: darkMode ? "#293B40" : "#EAE9E3",
-          shadowColor: darkMode ? "#000000" : "#18323D",
+          borderColor: darkMode ? "#39365B" : colors.line,
+          shadowColor: darkMode ? "#000000" : colors.ink,
           shadowOpacity: 0.12,
           shadowOffset: { width: 0, height: 7 },
           shadowRadius: 20,

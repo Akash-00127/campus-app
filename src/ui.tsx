@@ -23,16 +23,16 @@ import { focusedScrollOffset } from "./keyboard";
 import { useAppTheme } from "./theme";
 import { darkThemeColor } from "./theme-colors";
 export const colors = {
-  ink: "#182C35",
-  green: "#D94F32",
-  lime: "#FFF0E9",
-  bg: "#F8F7F3",
-  muted: "#78828A",
-  line: "#EAE9E3",
-  navy: "#18323D",
+  ink: "#1E1B4B",
+  green: "#7C3AED",
+  lime: "#F2EEFF",
+  bg: "#F6F9EE",
+  muted: "#475569",
+  line: "#E2EBD7",
+  navy: "#1E1B4B",
   surface: "#FFFFFF",
-  orange: "#F59E0B",
-  success: "#239B68",
+  orange: "#FF9752",
+  success: "#247B55",
 };
 export const money = (n: number) => `₹${(n / 100).toFixed(2)}`;
 const FocusContext=createContext<(input:ComponentRef<typeof TextInput>|null)=>void>(()=>{});
@@ -76,9 +76,9 @@ export function Screen({children,backgroundColor,footer}:{children:ReactNode;bac
  const reveal=useCallback(()=>{const input=focused.current;if(!input||!input.isFocused())return;viewport.current?.measureInWindow((_x,vy,_w,vh)=>{input.measureInWindow((_ix,iy,_iw,ih)=>{const target=focusedScrollOffset(offset.current,iy,ih,vy,vh,keyboardTop.current);if(Math.abs(target-offset.current)>1)scroll.current?.scrollTo({y:target,animated:true});});});},[]);
  const schedule=useCallback(()=>{requestAnimationFrame(()=>requestAnimationFrame(reveal));},[reveal]);
  useEffect(()=>{const show=Keyboard.addListener('keyboardDidShow',event=>{keyboardTop.current=event.endCoordinates.screenY;setKeyboardOpen(true);schedule()});const hide=Keyboard.addListener('keyboardDidHide',()=>{keyboardTop.current=Infinity;setKeyboardOpen(false)});return()=>{show.remove();hide.remove()}},[schedule]);
- const screenBackground=backgroundColor?(darkMode?darkThemeColor(backgroundColor,"background"):backgroundColor):darkMode?"#101A1E":undefined;
+ const screenBackground=backgroundColor?(darkMode?darkThemeColor(backgroundColor,"background"):backgroundColor):darkMode?"#121126":undefined;
  const safeChildren=themedTree(children,darkMode);
- return <SafeAreaView style={[s.safe,darkMode&&{backgroundColor:"#101A1E"},screenBackground&&{backgroundColor:screenBackground}]} edges={['top','left','right','bottom']}><KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':Platform.OS==='android'?'height':undefined}><View style={{flex:1}} onLayout={schedule}><FocusContext.Provider value={input=>{focused.current=input;schedule()}}><View ref={viewport} style={{flex:1}}><ScrollView ref={scroll} style={{flex:1}} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" onScroll={event=>{offset.current=event.nativeEvent.contentOffset.y}} scrollEventThrottle={16} contentContainerStyle={[s.page,{flexGrow:1}]}><View>{safeChildren}</View></ScrollView></View>{footer && !keyboardOpen ? <View>{themedTree(footer,darkMode)}</View> : null}</FocusContext.Provider></View></KeyboardAvoidingView></SafeAreaView>
+ return <SafeAreaView style={[s.safe,darkMode&&{backgroundColor:"#121126"},screenBackground&&{backgroundColor:screenBackground}]} edges={['top','left','right','bottom']}><KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':Platform.OS==='android'?'height':undefined}><View style={{flex:1}} onLayout={schedule}><FocusContext.Provider value={input=>{focused.current=input;schedule()}}><View ref={viewport} style={{flex:1}}><ScrollView ref={scroll} style={{flex:1}} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" onScroll={event=>{offset.current=event.nativeEvent.contentOffset.y}} scrollEventThrottle={16} contentContainerStyle={[s.page,{flexGrow:1}]}><View>{safeChildren}</View></ScrollView></View>{footer && !keyboardOpen ? <View>{themedTree(footer,darkMode)}</View> : null}</FocusContext.Provider></View></KeyboardAvoidingView></SafeAreaView>
 }
 export function Title({
   eyebrow,
@@ -123,7 +123,7 @@ export function Button({
         pressed && { opacity: 0.82, transform: [{ scale: 0.985 }] },
       ]}
     >
-      {isValidElement(children) ? children : <Text style={[s.buttonText, secondary && { color: colors.green },darkMode&&secondary&&{color:"#FFAC8E"}]}>{children}</Text>}
+      {isValidElement(children) ? children : <Text style={[s.buttonText, secondary && { color: colors.green },darkMode&&secondary&&{color:"#C4B5FD"}]}>{children}</Text>}
     </Pressable>
   );
 }
@@ -179,9 +179,9 @@ export const s = StyleSheet.create({
     marginBottom: 7,
   },
   input: { fontFamily: "Inter_400Regular",
-    borderWidth: 1,
+    borderWidth: 1.2,
     borderColor: colors.line,
-    borderRadius: 15,
+    borderRadius: 20,
     padding: 15,
     backgroundColor: "#FFFFFF",
     color: colors.ink,
@@ -190,11 +190,11 @@ export const s = StyleSheet.create({
   inputFocused: { borderColor: colors.green, borderWidth: 1.5, backgroundColor: colors.surface },
   fieldRight: { position: "absolute", right: 12, top: 0, bottom: 0, justifyContent: "center" },
   button: {
-    minHeight: 54,
+    minHeight: 56,
     justifyContent: "center",
     paddingVertical: 16,
     paddingHorizontal: 18,
-    borderRadius: 15,
+    borderRadius: 20,
     backgroundColor: colors.green,
     alignItems: "center",
     marginTop: 8,
@@ -204,8 +204,8 @@ export const s = StyleSheet.create({
   card: {
     backgroundColor: "white",
     padding: 22,
-    borderRadius: 22,
-    boxShadow: "0px 6px 22px rgba(24,50,61,0.055)",
+    borderRadius: 24,
+    boxShadow: "0px 7px 24px rgba(30,27,75,0.06)",
     borderWidth: 1,
     borderColor: colors.line,
     marginBottom: 16,
@@ -234,9 +234,9 @@ export const s = StyleSheet.create({
     overflow: "hidden",
   },
   notice: {
-    backgroundColor: "#FFF4EE",
+    backgroundColor: "#F7F3FF",
     borderWidth: 1,
-    borderColor: "#F4E1D8",
+    borderColor: "#DED7F5",
     padding: 16,
     borderRadius: 16,
     marginVertical: 12,
@@ -257,7 +257,7 @@ export const s = StyleSheet.create({
     borderColor: colors.line,
     marginRight: 8,
   },
-  selected: { backgroundColor: colors.lime, borderColor: "#E6B39F" },
+  selected: { backgroundColor: colors.lime, borderColor: "#C4B5FD" },
   dropdown: {
     backgroundColor: "white",
     borderWidth: 1,
@@ -270,11 +270,11 @@ export const s = StyleSheet.create({
   dropdownItem: { paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "#EDF0E9" },
   dropdownMeta: { color: colors.muted, fontSize: 12, marginTop: 3 },
   dropdownEmpty: { color: colors.muted, padding: 14, textAlign: "center" },
-  selection: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#FFF4EE", borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, marginTop: -5, marginBottom: 14 },
+  selection: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", backgroundColor: "#F7F3FF", borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, marginTop: -5, marginBottom: 14 },
   selectionText: { color: colors.ink, flex: 1, fontSize: 12, fontWeight: "700", fontFamily: "PlusJakartaSans_700Bold", marginRight: 8 },
   selectionAction: { color: colors.green, fontSize: 12, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" },
   passwordToggle: { color: colors.green, fontSize: 12, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold", padding: 5 },
-  dropdownButton: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: "#FFF4EE", borderWidth: 1, borderColor: "#F0D7CA" },
+  dropdownButton: { width: 32, height: 32, borderRadius: 16, alignItems: "center", justifyContent: "center", backgroundColor: "#F2EEFF", borderWidth: 1, borderColor: "#D8CFF4" },
   dropdownButtonOpen: { backgroundColor: colors.green, borderColor: colors.green },
   dropdownChevron: { color: colors.green, fontSize: 20, fontWeight: "900", fontFamily: "PlusJakartaSans_800ExtraBold", lineHeight: 23, marginTop: -3 },
   dropdownChevronOpen: { color: "white" },

@@ -114,7 +114,7 @@ export const st = StyleSheet.create({
   old: { textDecorationLine: "line-through", fontSize: 11, color: colors.muted },
   oldCompact: { fontSize: 9 },
   actionStack: { gap: 7, marginTop: 11 },
-  add: { minHeight: 39, flexDirection: "row", gap: 5, borderWidth: 1, borderColor: "#E6B39F", borderRadius: 12, paddingHorizontal: 8, alignItems: "center", justifyContent: "center", backgroundColor: colors.lime },
+  add: { minHeight: 39, flexDirection: "row", gap: 5, borderWidth: 1, borderColor: "#C4B5FD", borderRadius: 12, paddingHorizontal: 8, alignItems: "center", justifyContent: "center", backgroundColor: colors.lime },
   addCompact: { minHeight: 34, borderRadius: 10, paddingHorizontal: 6 },
   unavailable: { opacity: .5 },
   added: { backgroundColor: "#E8F5ED", borderColor: "#B9DDC8" },
