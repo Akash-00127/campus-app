@@ -5,7 +5,6 @@ import { mediaUrl, request, type Catalog, type Vendor } from "../../src/api";
 import { useSession } from "../../src/session";
 import { usePreferences } from "../../src/preferences";
 import { ProductCard } from "../../src/storefront";
-import { CartButton } from "../../src/cart-button";
 import { EmptyState, Notice, Screen, ThemeContent, colors } from "../../src/ui";
 
 type ShopFilter = "ALL" | "OPEN" | "TOP_RATED" | "FAST";
@@ -116,7 +115,6 @@ export default function Vendors() {
   return <Screen>
     <View style={v.hero}>
       <View style={v.heroGlow} />
-      <View style={v.cartCorner}><CartButton compact light /></View>
       <Text style={v.eyebrow}>LOCAL TO YOUR CAMPUS</Text>
       <Text style={v.heroTitle}>Campus shops</Text>
       <Text style={v.heroCopy}>Your favourite food, drinks and daily essentials — all in one place.</Text>
@@ -191,7 +189,7 @@ function FoodSkeleton() {
 }
 
 const v = StyleSheet.create({
-  hero: { minHeight: 222, borderRadius: 28, padding: 24, backgroundColor: colors.navy, overflow: "hidden", justifyContent: "center", marginBottom: -29 }, heroGlow: { position: "absolute", width: 220, height: 220, borderRadius: 110, backgroundColor: "#335B62", right: -88, top: -92, opacity: .65 }, cartCorner: { position: "absolute", right: 18, top: 18, zIndex: 2 }, eyebrow: { color: "#FFB89F", fontSize: 9, letterSpacing: 1.8, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold", marginBottom: 9 }, heroTitle: { color: "#FFFFFF", fontSize: 35, letterSpacing: -1.2, lineHeight: 40, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" }, heroCopy: { color: "#D5E0E2", fontSize: 12, lineHeight: 19, maxWidth: 310, marginTop: 8, fontFamily: "PlusJakartaSans_500Medium" }, heroMeta: { marginTop: 18, flexDirection: "row", alignItems: "center", gap: 7 }, liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#51D5A1" }, heroMetaText: { color: "#FFFFFF", fontSize: 10, fontWeight: "700", fontFamily: "PlusJakartaSans_700Bold" },
+  hero: { minHeight: 222, borderRadius: 28, padding: 24, backgroundColor: colors.navy, overflow: "hidden", justifyContent: "center", marginBottom: -29 }, heroGlow: { position: "absolute", width: 220, height: 220, borderRadius: 110, backgroundColor: "#335B62", right: -88, top: -92, opacity: .65 }, eyebrow: { color: "#FFB89F", fontSize: 9, letterSpacing: 1.8, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold", marginBottom: 9 }, heroTitle: { color: "#FFFFFF", fontSize: 35, letterSpacing: -1.2, lineHeight: 40, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" }, heroCopy: { color: "#D5E0E2", fontSize: 12, lineHeight: 19, maxWidth: 310, marginTop: 8, fontFamily: "PlusJakartaSans_500Medium" }, heroMeta: { marginTop: 18, flexDirection: "row", alignItems: "center", gap: 7 }, liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#51D5A1" }, heroMetaText: { color: "#FFFFFF", fontSize: 10, fontWeight: "700", fontFamily: "PlusJakartaSans_700Bold" },
   searchBox: { minHeight: 60, marginHorizontal: 13, borderRadius: 19, backgroundColor: colors.surface, borderWidth: 1, borderColor: "#E8E6DF", flexDirection: "row", alignItems: "center", paddingHorizontal: 15, boxShadow: "0px 8px 22px rgba(24,50,61,0.12)" }, searchInput: { flex: 1, paddingVertical: 18, paddingHorizontal: 12, color: colors.ink, fontSize: 13, fontFamily: "PlusJakartaSans_500Medium" }, searchGlyph: { width: 20, height: 20 }, searchLens: { width: 14, height: 14, borderRadius: 8, borderWidth: 1.8, borderColor: colors.green }, searchHandle: { position: "absolute", width: 7, height: 2, backgroundColor: colors.green, right: 0, bottom: 2, borderRadius: 2, transform: [{ rotate: "45deg" }] }, clear: { width: 29, height: 29, borderRadius: 10, backgroundColor: colors.bg, alignItems: "center", justifyContent: "center" }, clearText: { color: colors.muted, fontSize: 19, lineHeight: 22 },
   filters: { paddingTop: 19, paddingBottom: 5, paddingRight: 8, gap: 8 }, filter: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line }, filterActive: { backgroundColor: colors.ink, borderColor: colors.ink }, filterText: { color: colors.ink, fontSize: 10, fontWeight: "700", fontFamily: "PlusJakartaSans_700Bold" }, filterTextActive: { color: "#FFFFFF" }, pressed: { opacity: .78, transform: [{ scale: .97 }] },
   sectionHead: { marginTop: 22, marginBottom: 14, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" }, sectionTitle: { color: colors.ink, fontSize: 22, letterSpacing: -.7, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" }, sectionCopy: { color: colors.muted, fontSize: 10, marginTop: 4 }, reset: { color: colors.green, fontSize: 11, fontWeight: "800", padding: 8 },

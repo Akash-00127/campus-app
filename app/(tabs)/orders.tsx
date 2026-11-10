@@ -22,7 +22,6 @@ import X from "lucide-react-native/icons/x";
 import type { LucideIcon } from "lucide-react-native";
 import { request, type Order, type Product } from "../../src/api";
 import { useSession } from "../../src/session";
-import { CartButton } from "../../src/cart-button";
 import { Field, Notice, Screen, ThemeContent, colors, money } from "../../src/ui";
 import { useAppTheme } from "../../src/theme";
 
@@ -170,7 +169,6 @@ export default function Orders() {
     <View style={o.header}>
       <View style={{ flex: 1 }}><Text style={o.eyebrow}>{vendor ? "SELLER OPERATIONS" : "CAMPUS DELIVERY"}</Text><Text style={o.title}>{vendor ? "Order inbox" : "Your orders"}</Text><Text style={o.subtitle}>{vendor ? "Move new orders from acceptance to delivery." : "Track every craving from the shop to your door."}</Text></View>
       <Pressable accessibilityRole="button" accessibilityLabel="Refresh orders" disabled={refreshing} onPress={() => void refresh()} style={({ pressed }) => [o.refreshButton, pressed && o.pressed]}><RefreshCw size={19} color={colors.green} strokeWidth={2} style={refreshing ? { opacity: .45 } : undefined} /></Pressable>
-      {!vendor && <CartButton compact />}
     </View>
 
     <View style={o.summaryCard}>

@@ -1,6 +1,7 @@
-import { router } from "expo-router";
+import { router, useLocalSearchParams, useSegments } from "expo-router";
 import { ShoppingCart } from "lucide-react-native";
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useSession } from "./session";
 import { useAppTheme } from "./theme";
 import { colors, money } from "./ui";
@@ -12,7 +13,7 @@ export function CartMark({ size = 20, dark = false }: { size?: number; dark?: bo
   </View>;
 }
 
-export function CartButton({ compact = false, light = false }: { compact?: boolean; light?: boolean }) {
+export function CartButton({ compact = false, light = false, floating = false }: { compact?: boolean; light?: boolean; floating?: boolean }) {
   const { cart } = useSession();
   const { darkMode } = useAppTheme();
   const count = cart.reduce((total, line) => total + line.quantity, 0);
@@ -23,7 +24,7 @@ export function CartButton({ compact = false, light = false }: { compact?: boole
     accessibilityLabel={count ? `Open cart with ${count} items` : "Open empty cart"}
     onPress={() => router.push("/basket")}
     hitSlop={8}
-    style={({ pressed }) => [c.button, compact && c.compact, light && c.light, darkMode && c.buttonDark, pressed && c.pressed]}
+    style={({ pressed }) => [c.button, compact && c.compact, light && c.light, darkMode && c.buttonDark, floating && c.floating, pressed && c.pressed]}
   >
     <View style={c.iconWrap}>
       <CartMark size={compact ? 19 : 20} dark={darkMode} />
@@ -36,9 +37,22 @@ export function CartButton({ compact = false, light = false }: { compact?: boole
   </Pressable>;
 }
 
+export function FloatingCartButton() {
+  const { session } = useSession();
+  const segments = useSegments();
+  const params = useLocalSearchParams<{ origin?: string }>();
+  const insets = useSafeAreaInsets();
+  const onCartPage = segments.some((segment) => segment === "cart" || segment === "basket");
+  const onAccountPage = segments.includes("profile") || (segments.includes("addresses") && params.origin === "account");
+  if (!session || session.user.role !== "STUDENT" || onCartPage || onAccountPage) return null;
+  return <View pointerEvents="box-none" style={[c.floatingPosition, { top: insets.top + 30 }]}><CartButton compact floating /></View>;
+}
+
 const c = StyleSheet.create({
   button: { minHeight: 50, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 10, borderRadius: 18, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, boxShadow: "0px 5px 16px rgba(24,50,61,0.10)" },
   compact: { width: 48, minHeight: 48, paddingHorizontal: 0, justifyContent: "center", borderRadius: 17 },
+  floatingPosition: { position: "absolute", right: 22, zIndex: 100, elevation: 20 },
+  floating: { width: 52, minHeight: 52, borderRadius: 19, borderColor: "rgba(255,255,255,0.78)", boxShadow: "0px 7px 20px rgba(24,50,61,0.20)" },
   light: { backgroundColor: "rgba(255,255,255,0.96)", borderColor: "rgba(255,255,255,0.75)" },
   buttonDark: { backgroundColor: "#1A292E", borderColor: "#304247" },
   pressed: { opacity: .82, transform: [{ scale: .96 }] },

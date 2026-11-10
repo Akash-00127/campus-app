@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { router } from "expo-router";
 import { Check, Minus, Plus, Zap } from "lucide-react-native";
-import { Alert, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
 import { mediaUrl, type Product } from "./api";
 import { useSession } from "./session";
+import { useBuyNow } from "./buy-now-flow";
 import { colors, money, s, ThemeContent } from "./ui";
 
 export function ProductCard({ product: p, enabled = true, compact = false }: { product: Product; enabled?: boolean; compact?: boolean }) {
-  const { add, replace, cart, quantity, saved, toggleSaved } = useSession();
+  const { add, cart, quantity, saved, toggleSaved } = useSession();
+  const { buyNow, buyNowDialog } = useBuyNow();
   const favorite = saved.some((item) => item.id === p.id);
   const cartLine = cart.find((line) => line.product.id === p.id);
   const available = enabled && p.available && p.stock !== 0 && p.vendor.acceptingOrders;
@@ -24,21 +26,13 @@ export function ProductCard({ product: p, enabled = true, compact = false }: { p
     feedbackTimer.current = setTimeout(() => setJustAdded(false), 1200);
   }
 
-  function addToCart(buyNow = false) {
+  function addToCart() {
     if (cartLine) {
-      if (buyNow) router.push("/basket");
-      else quantity(p.id, cartLine.quantity + 1);
+      quantity(p.id, cartLine.quantity + 1);
       return;
     }
-    if (add(p)) {
-      showAdded();
-      if (buyNow) router.push("/basket");
-      return;
-    }
-    Alert.alert("Start a new cart?", "Your cart has items from another shop.", [
-      { text: "Keep cart", style: "cancel" },
-      { text: "Clear and add", onPress: () => { replace(p); showAdded(); if (buyNow) router.push("/basket"); } },
-    ]);
+    add(p);
+    showAdded();
   }
 
   const discount = p.compareAtPricePaise && p.compareAtPricePaise > p.pricePaise
@@ -46,7 +40,7 @@ export function ProductCard({ product: p, enabled = true, compact = false }: { p
     : 0;
   const canIncrease = Boolean(cartLine && cartLine.quantity < Math.min(50, p.stock ?? 50));
 
-  return <ThemeContent><View style={[st.card, compact && st.cardCompact]}>
+  return <ThemeContent><>{buyNowDialog}<View style={[st.card, compact && st.cardCompact]}>
     <Pressable accessibilityLabel={`View ${p.name}`} onPress={() => router.push(`/product/${p.id}`)} style={({ pressed }) => [st.picture, compact && st.pictureCompact, pressed && st.imagePressed]}>
       {p.image
         ? <Image source={{ uri: mediaUrl(p.image) }} resizeMode="cover" style={st.image} />
@@ -71,17 +65,17 @@ export function ProductCard({ product: p, enabled = true, compact = false }: { p
             <Text accessibilityLabel={`Quantity ${cartLine.quantity}`} style={[st.quantity, compact && st.quantityCompact]}>{cartLine.quantity}</Text>
             <Pressable accessibilityRole="button" accessibilityLabel={`Add one more ${p.name}`} hitSlop={8} disabled={!canIncrease} onPress={() => quantity(p.id, cartLine.quantity + 1)} style={({ pressed }) => [st.stepButton, !canIncrease && st.stepDisabled, pressed && canIncrease && st.stepPressed]}><Plus size={compact ? 13 : 15} strokeWidth={2.5} color={colors.ink} /></Pressable>
           </View>
-          <Pressable accessibilityRole="button" accessibilityLabel={`Buy ${p.name} now`} onPress={() => router.push("/basket")} style={({ pressed }) => [st.buyMini, pressed && st.buttonPressed]}><Zap size={compact ? 12 : 14} fill="#FFFFFF" color="#FFFFFF" /><Text style={[st.buyMiniText, compact && st.buyMiniTextCompact]}>Buy</Text></Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Buy ${p.name} now`} onPress={() => buyNow(p, cartLine.quantity)} style={({ pressed }) => [st.buyMini, pressed && st.buttonPressed]}><Zap size={compact ? 12 : 14} fill="#FFFFFF" color="#FFFFFF" /><Text style={[st.buyMiniText, compact && st.buyMiniTextCompact]}>Buy</Text></Pressable>
         </View>
       </> : <View style={st.actionStack}>
-        <Pressable disabled={!available} accessibilityRole="button" accessibilityLabel={justAdded ? `${p.name} added to cart` : `Add ${p.name} to cart`} onPress={() => addToCart(false)} style={({ pressed }) => [st.add, compact && st.addCompact, !available && st.unavailable, justAdded && st.added, pressed && available && st.buttonPressed]}>
+        <Pressable disabled={!available} accessibilityRole="button" accessibilityLabel={justAdded ? `${p.name} added to cart` : `Add ${p.name} to cart`} onPress={addToCart} style={({ pressed }) => [st.add, compact && st.addCompact, !available && st.unavailable, justAdded && st.added, pressed && available && st.buttonPressed]}>
           {justAdded ? <Check size={14} strokeWidth={3} color={colors.success} /> : <Plus size={14} strokeWidth={2.5} color={available ? colors.green : colors.muted} />}
           <Text style={[st.addText, compact && st.addTextCompact, justAdded && st.addTextAdded]}>{available ? justAdded ? "Added to cart" : "Add to cart" : "Unavailable"}</Text>
         </Pressable>
-        {available && <Pressable accessibilityRole="button" accessibilityLabel={`Buy ${p.name} now`} onPress={() => addToCart(true)} style={({ pressed }) => [st.buy, compact && st.buyCompact, pressed && st.buttonPressed]}><Zap size={compact ? 12 : 14} fill="#FFFFFF" color="#FFFFFF" /><Text style={[st.buyText, compact && st.buyTextCompact]}>Buy now</Text></Pressable>}
+        {available && <Pressable accessibilityRole="button" accessibilityLabel={`Buy ${p.name} now`} onPress={() => buyNow(p)} style={({ pressed }) => [st.buy, compact && st.buyCompact, pressed && st.buttonPressed]}><Zap size={compact ? 12 : 14} fill="#FFFFFF" color="#FFFFFF" /><Text style={[st.buyText, compact && st.buyTextCompact]}>Buy now</Text></Pressable>}
       </View>}
     </View>
-  </View></ThemeContent>;
+  </View></></ThemeContent>;
 }
 
 export const st = StyleSheet.create({

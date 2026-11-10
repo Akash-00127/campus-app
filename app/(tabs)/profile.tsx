@@ -33,7 +33,6 @@ import { Button, Field, Notice, Screen, ThemeContent, Title, colors, s } from ".
 import { usePreferences, type DiscoveryPreferences } from "../../src/preferences";
 import { useAppTheme } from "../../src/theme";
 import { useProfilePhoto } from "../../src/profile-photo";
-import { CartButton } from "../../src/cart-button";
 type Note = {
   id: string;
   title: string;
@@ -578,7 +577,7 @@ export default function ProfileScreen() {
     <Screen backgroundColor={overviewTitle && darkMode ? "#101A1E" : "#F3F0EB"}>
       {overviewTitle ? <View style={p.accountPageTitle}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}><View style={{ flex: 1 }}><Text style={[p.accountEyebrow, darkMode && p.darkAccentText]}>YOUR CAMPUS DROP</Text>
-        <Text style={[p.accountTitle, darkMode && p.darkPrimaryText]}>Account</Text></View>{!vendor && <CartButton compact />}</View>
+        <Text style={[p.accountTitle, darkMode && p.darkPrimaryText]}>Account</Text></View></View>
         <Text style={[p.accountSubtitle, darkMode && p.darkSecondaryText]}>Profile, preferences and support in one place.</Text>
       </View> : <Title
         eyebrow={vendor ? "YOUR SHOP & ACCOUNT" : "YOUR CAMPUS ACCOUNT"}

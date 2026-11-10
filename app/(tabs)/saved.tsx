@@ -3,7 +3,6 @@ import { useFocusEffect } from "expo-router";
 import { StyleSheet, Text, View } from "react-native";
 import { Heart } from "lucide-react-native";
 import { request, type Product } from "../../src/api";
-import { CartButton } from "../../src/cart-button";
 import { useSession } from "../../src/session";
 import { ProductCard } from "../../src/storefront";
 import { EmptyState, Notice, Screen, ThemeContent, colors } from "../../src/ui";
@@ -30,7 +29,6 @@ export default function Saved() {
         <Text style={l.eyebrow}>YOUR FAVOURITES</Text>
         <Text style={l.title}>Liked by you</Text>
       </View>
-      <CartButton compact />
     </View>
     <View style={l.hero}>
       <View style={l.heroIcon}><Heart size={24} color={colors.green} fill="#FFF0E9" /></View>

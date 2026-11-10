@@ -112,6 +112,32 @@ test('checkout helper uses native UUID generation when available',()=>{
   const helper=load('src/checkout-key.ts',{'expo-crypto':{randomUUID:()=> 'native-uuid'}});
   assert.equal(helper.newCheckoutKey(),'native-uuid');
 });
+test('buy now can check out one product without changing or including the saved cart',()=>{
+  const {createBuyNowCheckout}=load('src/buy-now.ts');
+  const vendor={id:'shop-a'},cartProduct={id:'cart-product',vendorId:'shop-a',stock:20},selected={id:'selected-product',vendorId:'shop-a',stock:5,vendor};
+  const cart=[{product:cartProduct,quantity:3,note:'saved note'}];
+  const checkout=createBuyNowCheckout(cart,selected,2,false);
+  assert.equal(checkout.includesCart,false);
+  assert.equal(JSON.stringify(checkout.lines.map(line=>[line.product.id,line.quantity])),JSON.stringify([['selected-product',2]]));
+  assert.deepEqual(cart.map(line=>[line.product.id,line.quantity,line.note]),[['cart-product',3,'saved note']]);
+});
+test('buy now can combine a selected product with the same-shop cart without duplicating an existing line',()=>{
+  const {createBuyNowCheckout}=load('src/buy-now.ts');
+  const vendor={id:'shop-a'},first={id:'first',vendorId:'shop-a',stock:20,vendor},second={id:'second',vendorId:'shop-a',stock:20,vendor};
+  const cart=[{product:first,quantity:2},{product:second,quantity:4}];
+  const added=createBuyNowCheckout(cart,{...first,name:'Fresh first'},1,true);
+  assert.equal(added.includesCart,true);
+  assert.equal(JSON.stringify(added.lines.map(line=>[line.product.id,line.quantity])),JSON.stringify([['first',2],['second',4]]));
+  const third={id:'third',vendorId:'shop-a',stock:20,vendor};
+  assert.equal(JSON.stringify(createBuyNowCheckout(cart,third,3,true).lines.map(line=>[line.product.id,line.quantity])),JSON.stringify([['first',2],['second',4],['third',3]]));
+});
+test('buy now can combine different shops and groups the resulting order by shop',()=>{
+  const {createBuyNowCheckout,groupCheckoutLines}=load('src/buy-now.ts');
+  const first={id:'first',vendorId:'shop-a',vendor:{name:'Shop A'}},second={id:'second',vendorId:'shop-b',stock:2,vendor:{name:'Shop B'}};
+  const checkout=createBuyNowCheckout([{product:first,quantity:1}],second,1,true);
+  assert.equal(checkout.includesCart,true);
+  assert.equal(JSON.stringify(groupCheckoutLines(checkout.lines).map(group=>[group.vendorId,group.lines.map(line=>line.product.id)])),JSON.stringify([['shop-a',['first']],['shop-b',['second']]]));
+});
 test('keyboard covering a bottom field causes enough scrolling to reveal it',()=>{assert.equal(focusedScrollOffset(0,650,50,40,720,500),220)});
 test('resized Android viewport keeps the focused field above its bottom',()=>{assert.equal(focusedScrollOffset(120,470,50,30,460,800),170)});
 test('visible field retains scroll position; earlier fields can be revealed',()=>{assert.equal(focusedScrollOffset(90,100,50,30,400,500),90);assert.equal(focusedScrollOffset(90,10,40,30,400,500),58)});

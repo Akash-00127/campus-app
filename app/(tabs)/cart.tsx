@@ -1,8 +1,8 @@
 import { newCheckoutKey as newKey } from "../../src/checkout-key";
 import * as SecureStore from "../../src/secure";
 import { useCallback, useState, useRef, useEffect } from "react";
-import { useFocusEffect, router } from "expo-router";
-import { Alert, Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { useFocusEffect, router, useLocalSearchParams } from "expo-router";
+import { ActivityIndicator, Image, Modal, Pressable, StyleSheet, Text, View } from "react-native";
 import { ChevronRight, CircleCheck, CreditCard, MapPin, MessageSquareText, Minus, Plus, RotateCw, ShieldCheck, ShoppingCart, Store, TicketPercent, Trash2 } from "lucide-react-native";
 import {
   mediaUrl, request,
@@ -13,17 +13,25 @@ import {
 } from "../../src/api";
 import { useSession } from "../../src/session";
 import { useAppTheme } from "../../src/theme";
-import { CartMark } from "../../src/cart-button";
+import { groupCheckoutLines } from "../../src/buy-now";
 import { Button, Field, Notice, Screen, Title, ThemeContent, colors, money, s } from "../../src/ui";
 type Quote = { totalPaise: number; discountPaise: number; subtotalPaise: number; deliveryFeePaise: number; platformFeePaise: number };
 type VerifiedQuote = Quote & { inputKey: string };
+type PlacedReceipt = { shops: { name: string; code: string; totalPaise: number }[]; totalPaise: number };
 export default function Cart() {
-  const { session, cart, quantity, note, clear, replaceCart } = useSession();
+  const { checkout: checkoutMode } = useLocalSearchParams<{ checkout?: string }>();
+  const { session, cart, buyNowCheckout, quantity, note, clear, replaceCart, replaceBuyNow, buyNowQuantity, buyNowNote, clearBuyNow } = useSession();
+  const isBuyNow = checkoutMode === "buy-now" && Boolean(buyNowCheckout);
+  const orderLines = isBuyNow ? buyNowCheckout!.lines : cart;
+  const updateQuantity = isBuyNow ? buyNowQuantity : quantity;
+  const updateNote = isBuyNow ? buyNowNote : note;
   const { darkMode } = useAppTheme();
   const [coupon,setCoupon]=useState('');
   const [couponDraft, setCouponDraft] = useState("");
-  const [quote,setQuote]=useState<VerifiedQuote>();
+  const [quote,setQuote]=useState<Record<string, VerifiedQuote>>();
   const [quoteLoading, setQuoteLoading] = useState(false);
+  const [placingShop, setPlacingShop] = useState<{ name: string; index: number; total: number }>();
+  const [placedReceipt, setPlacedReceipt] = useState<PlacedReceipt>();
   const [clearConfirm, setClearConfirm] = useState(false);
   const [refreshMessage, setRefreshMessage] = useState("");
   const [expandedNotes, setExpandedNotes] = useState<string[]>([]);
@@ -32,21 +40,36 @@ export default function Cart() {
   const [profile, setProfile] = useState<Profile>();
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [selected, setSelected] = useState("");
-  const quoteInputKey = JSON.stringify({ addressId: selected, coupon, items: cart.map((line) => [line.product.id, line.product.vendorId, line.quantity, line.product.pricePaise, line.product.stock, line.product.available, line.product.vendor.acceptingOrders]) });
-  const verifiedQuote = quote?.inputKey === quoteInputKey ? quote : undefined;
+  const orderGroups = groupCheckoutLines(orderLines);
+  const quoteInputKey = JSON.stringify({ addressId: selected, coupon, groups: orderGroups.map((group) => [group.vendorId, group.lines.map((line) => [line.product.id, line.quantity, line.product.pricePaise, line.product.stock, line.product.available, line.product.vendor.acceptingOrders])]) });
+  const verifiedQuotes = Object.fromEntries(orderGroups.flatMap((group) => {
+    const value = quote?.[group.vendorId];
+    const groupInputKey = JSON.stringify({ addressId: selected, coupon, vendorId: group.vendorId, items: group.lines.map((line) => [line.product.id, line.quantity, line.product.pricePaise, line.product.stock, line.product.available, line.product.vendor.acceptingOrders]) });
+    return value?.inputKey === groupInputKey ? [[group.vendorId, value]] : [];
+  }));
+  const verifiedQuote = orderGroups.length && orderGroups.every((group) => verifiedQuotes[group.vendorId])
+    ? orderGroups.reduce((total, group) => {
+      const current = verifiedQuotes[group.vendorId];
+      return { totalPaise: total.totalPaise + current.totalPaise, discountPaise: total.discountPaise + current.discountPaise, subtotalPaise: total.subtotalPaise + current.subtotalPaise, deliveryFeePaise: total.deliveryFeePaise + current.deliveryFeePaise, platformFeePaise: total.platformFeePaise + current.platformFeePaise };
+    }, { totalPaise: 0, discountPaise: 0, subtotalPaise: 0, deliveryFeePaise: 0, platformFeePaise: 0 })
+    : undefined;
   useEffect(() => {
-    if (vendor || !cart.length || !selected) { setQuote(undefined); setQuoteLoading(false); return; }
+    if (vendor || !orderLines.length || !selected) { setQuote(undefined); setQuoteLoading(false); return; }
     let active = true;
     setQuote(undefined);
     setQuoteLoading(true);
-    void request<Quote>("/checkout/quote", token, "POST", {
-      vendorId: cart[0].product.vendorId,
-      addressId: selected,
-      paymentMethod: "COD",
-      idempotencyKey: newKey(),
-      ...(coupon ? { couponCode: coupon } : {}),
-      items: cart.map((line) => ({ productId: line.product.id, quantity: line.quantity })),
-    }).then((next) => { if (active) { setQuote({ ...next, inputKey: quoteInputKey }); setError(""); } })
+    void Promise.all(orderGroups.map(async (group) => {
+      const groupInputKey = JSON.stringify({ addressId: selected, coupon, vendorId: group.vendorId, items: group.lines.map((line) => [line.product.id, line.quantity, line.product.pricePaise, line.product.stock, line.product.available, line.product.vendor.acceptingOrders]) });
+      const next = await request<Quote>("/checkout/quote", token, "POST", {
+        vendorId: group.vendorId,
+        addressId: selected,
+        paymentMethod: "COD",
+        idempotencyKey: newKey(),
+        ...(coupon ? { couponCode: coupon } : {}),
+        items: group.lines.map((line) => ({ productId: line.product.id, quantity: line.quantity })),
+      });
+      return [group.vendorId, { ...next, inputKey: groupInputKey }] as const;
+    })).then((entries) => { if (active) { setQuote(Object.fromEntries(entries)); setError(""); } })
       .catch((caught) => { if (active) setError((caught as Error).message); })
       .finally(() => { if (active) setQuoteLoading(false); });
     return () => { active = false; };
@@ -61,7 +84,7 @@ export default function Cart() {
   const [image, setImage] = useState("");
   const [vegetarian, setVegetarian] = useState(false);
   const [edit, setEdit] = useState<Product>();
-  const attempt = useRef<{ key: string; payload: string } | null>(null);
+  const attempt = useRef<Record<string, { key: string; payload: string; orderSignature?: string; order?: Order }> | null>(null);
   const load = useCallback(async () => {
     try {
       setProfile(await request<Profile>("/auth/me", token));
@@ -90,52 +113,63 @@ export default function Cart() {
     setBusy(true);
     setError("");
     try {
-      const input = {
-        vendorId: cart[0].product.vendorId,
-        addressId: selected,
-        paymentMethod: "COD",
-        expectedTotalPaise: verifiedQuote.totalPaise,
-        ...(coupon?{couponCode:coupon}:{}),
-        items: cart.map((l) => ({
-          productId: l.product.id,
-          quantity: l.quantity,
-          ...(l.note?{note:l.note}:{}),
-        })),
-      };
-      const payload = JSON.stringify(input);
       const stored = await SecureStore.getItemAsync(
         "campus-checkout-" + session!.user.id,
       );
       if (!attempt.current && stored) {
         try {
-          attempt.current = JSON.parse(stored);
+          const parsed = JSON.parse(stored);
+          attempt.current = parsed.attempts || (parsed.key && parsed.payload ? { [orderGroups[0]?.vendorId]: parsed } : {});
         } catch {}
       }
-      if (!attempt.current || attempt.current.payload !== payload)
-        attempt.current = { key: newKey(), payload };
-      await SecureStore.setItemAsync(
-        "campus-checkout-" + session!.user.id,
-        JSON.stringify(attempt.current),
-      );
-      const order = await request<Order>("/orders", token, "POST", {
-        ...input,
-        idempotencyKey: attempt.current.key,
-      });
-      clear();
+      attempt.current ||= {};
+      const attempts = attempt.current;
+      const orders: Order[] = [];
+      for (const [index, group] of orderGroups.entries()) {
+        setPlacingShop({ name: group.vendorName, index: index + 1, total: orderGroups.length });
+        const quoteForGroup = verifiedQuotes[group.vendorId];
+        const input = {
+          vendorId: group.vendorId,
+          addressId: selected,
+          paymentMethod: "COD",
+          expectedTotalPaise: quoteForGroup.totalPaise,
+          ...(coupon ? { couponCode: coupon } : {}),
+          items: group.lines.map((line) => ({ productId: line.product.id, quantity: line.quantity, ...(line.note ? { note: line.note } : {}) })),
+        };
+        const payload = JSON.stringify(input);
+        const orderSignature = JSON.stringify({ vendorId: group.vendorId, addressId: selected, coupon, items: input.items });
+        const previous = attempts[group.vendorId];
+        if (previous?.order && previous.orderSignature === orderSignature) {
+          orders.push(previous.order);
+          continue;
+        }
+        if (!previous || previous.payload !== payload) attempts[group.vendorId] = { key: newKey(), payload, orderSignature };
+        await SecureStore.setItemAsync("campus-checkout-" + session!.user.id, JSON.stringify({ attempts }));
+        const order = await request<Order>("/orders", token, "POST", { ...input, idempotencyKey: attempts[group.vendorId].key });
+        attempts[group.vendorId] = { ...attempts[group.vendorId], orderSignature, order };
+        await SecureStore.setItemAsync("campus-checkout-" + session!.user.id, JSON.stringify({ attempts }));
+        orders.push(order);
+      }
+      if (!isBuyNow || buyNowCheckout?.includesCart) clear();
+      if (isBuyNow) clearBuyNow();
       setCoupon("");
       setCouponDraft("");
       attempt.current = null;
       await SecureStore.deleteItemAsync("campus-checkout-" + session!.user.id);
-      Alert.alert(
-        "Order placed",
-        `${order.code} · ${money(order.totalPaise)} due in cash. Follow your order in the Orders tab.`,
-      );
-      router.replace("/(tabs)/orders");
+      setPlacedReceipt({
+        shops: orders.map((order, index) => ({ name: orderGroups[index].vendorName, code: order.code, totalPaise: order.totalPaise })),
+        totalPaise: orders.reduce((total, order) => total + order.totalPaise, 0),
+      });
     } catch (e) {
       setError((e as Error).message);
     } finally {
+      setPlacingShop(undefined);
       setBusy(false);
     }
+  }
+  function viewOrders() {
+    setPlacedReceipt(undefined);
+    router.replace("/(tabs)/orders");
   }
   async function save() {
     setBusy(true);
@@ -192,8 +226,9 @@ export default function Cart() {
     setError("");
     setRefreshMessage("");
     try {
-      const lines = await Promise.all(cart.map(async (line) => ({ ...line, product: await request<Product>(`/products/${line.product.id}`, token) })));
-      replaceCart(lines);
+      const lines = await Promise.all(orderLines.map(async (line) => ({ ...line, product: await request<Product>(`/products/${line.product.id}`, token) })));
+      if (isBuyNow) replaceBuyNow(lines);
+      else replaceCart(lines);
       setRefreshMessage("Prices and availability updated.");
     } catch (caught) {
       setError((caught as Error).message);
@@ -201,26 +236,27 @@ export default function Cart() {
       setBusy(false);
     }
   }
-  const subtotal = cart.reduce(
+  const subtotal = orderLines.reduce(
     (n, l) => n + l.product.pricePaise * l.quantity,
     0,
   );
   const campus = profile?.campus;
-  const fee = (campus?.deliveryFeePaise || 0) + (campus?.platformFeePaise || 0);
-  const itemCount = cart.reduce((count, line) => count + line.quantity, 0);
-  const unavailableItems = cart.some((line) => !line.product.available || !line.product.active || line.product.stock === 0 || !line.product.vendor.acceptingOrders || (line.product.stock !== null && line.quantity > line.product.stock));
-  const checkoutDisabled = busy || quoteLoading || !verifiedQuote || !selected || unavailableItems || !campus?.codEnabled || !campus?.serviceEnabled || !cart[0]?.product.vendor.codEnabled;
-  const checkoutHint = unavailableItems ? "Update or remove unavailable items to continue." : !selected ? "Add a delivery address to continue." : !campus?.serviceEnabled ? "Campus ordering is currently paused." : !campus?.codEnabled || !cart[0]?.product.vendor.codEnabled ? "Cash on delivery is unavailable for this order." : quoteLoading ? "Checking the latest total…" : !verifiedQuote ? "Your total needs to be verified before checkout." : "Your total is verified. Pay in cash when your order arrives.";
+  const fee = ((campus?.deliveryFeePaise || 0) + (campus?.platformFeePaise || 0)) * orderGroups.length;
+  const itemCount = orderLines.reduce((count, line) => count + line.quantity, 0);
+  const unavailableItems = orderLines.some((line) => !line.product.available || !line.product.active || line.product.stock === 0 || !line.product.vendor.acceptingOrders || (line.product.stock !== null && line.quantity > line.product.stock));
+  const missingCashOnDelivery = !campus?.codEnabled || orderGroups.some((group) => !group.lines[0].product.vendor.codEnabled);
+  const checkoutDisabled = busy || quoteLoading || !verifiedQuote || !selected || unavailableItems || !campus?.serviceEnabled || missingCashOnDelivery;
+  const checkoutHint = unavailableItems ? "Update or remove unavailable items to continue." : !selected ? "Add a delivery address to continue." : !campus?.serviceEnabled ? "Campus ordering is currently paused." : missingCashOnDelivery ? "Cash on delivery is unavailable for at least one shop in this order." : quoteLoading ? "Checking shop totals…" : !verifiedQuote ? "Every shop total must be verified before checkout." : `Totals verified for ${orderGroups.length} ${orderGroups.length === 1 ? "shop" : "shops"}. Pay in cash when your orders arrive.`;
   return (
-    <Screen footer={!vendor && cart.length > 0 ? <View style={c.stickyBar}><View style={c.stickyInner}><View style={c.stickyTop}><View><Text style={c.stickyLabel}>{verifiedQuote ? "TOTAL TO PAY" : "ESTIMATED TOTAL"}</Text><Text style={c.stickyAmount}>{money(verifiedQuote?.totalPaise ?? subtotal + fee)}</Text></View><View style={c.stickyPayment}><CircleCheck size={15} color={colors.success} /><Text style={c.stickyPaymentText}>Cash on delivery</Text></View></View><Pressable accessibilityRole="button" accessibilityLabel={verifiedQuote ? `Place cash on delivery order for ${money(verifiedQuote.totalPaise)}` : "Checkout unavailable until total is verified"} disabled={checkoutDisabled} onPress={() => void checkout()} style={({ pressed }) => [c.checkoutButton, checkoutDisabled && c.checkoutDisabled, pressed && c.checkoutPressed]}><Text style={c.checkoutText}>{busy ? "Placing order…" : quoteLoading ? "Verifying total…" : "Place order"}</Text><ChevronRight size={21} color="#FFFFFF" strokeWidth={2.5} /></Pressable><Text style={c.stickyHint}>{checkoutHint}</Text></View></View> : undefined}>
+    <>
+    <Screen footer={!vendor && orderLines.length > 0 ? <View style={c.stickyBar}><View style={c.stickyInner}><View style={c.stickyTop}><View><Text style={c.stickyLabel}>{verifiedQuote ? "TOTAL TO PAY" : "ESTIMATED TOTAL"}</Text><Text style={c.stickyAmount}>{money(verifiedQuote?.totalPaise ?? subtotal + fee)}</Text></View><View style={c.stickyPayment}><CircleCheck size={15} color={colors.success} /><Text style={c.stickyPaymentText}>Cash on delivery</Text></View></View><Pressable accessibilityRole="button" accessibilityLabel={busy && placingShop ? `Placing order ${placingShop.index} of ${placingShop.total} from ${placingShop.name}` : verifiedQuote ? `Place cash on delivery order for ${money(verifiedQuote.totalPaise)}` : "Checkout unavailable until total is verified"} disabled={checkoutDisabled} onPress={() => void checkout()} style={({ pressed }) => [c.checkoutButton, checkoutDisabled && c.checkoutDisabled, pressed && c.checkoutPressed]}>{busy ? <><ActivityIndicator size="small" color="#FFFFFF" /><Text style={c.checkoutText}>{placingShop ? `Placing ${placingShop.index} of ${placingShop.total} · ${placingShop.name}` : "Placing orders…"}</Text></> : <><Text style={c.checkoutText}>{quoteLoading ? "Verifying total…" : "Place order"}</Text><ChevronRight size={21} color="#FFFFFF" strokeWidth={2.5} /></>}</Pressable><Text style={c.stickyHint}>{busy && placingShop ? `Preparing the separate order from ${placingShop.name}.` : checkoutHint}</Text></View></View> : undefined}>
       {vendor ? <Title eyebrow="YOUR CATALOG" title="Products" subtitle="Keep products, prices and stock up to date." /> : <ThemeContent><>
         <View style={c.header}>
           <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={() => router.canGoBack() ? router.back() : router.replace("/(tabs)/home")} style={({ pressed }) => [c.back, pressed && c.pressed]}><Text style={c.backText}>‹</Text></Pressable>
-          <View style={{ flex: 1 }}><Text style={c.eyebrow}>YOUR ORDER</Text><Text style={c.title}>Your cart</Text><Text style={c.subtitle}>{itemCount ? `${itemCount} ${itemCount === 1 ? "item" : "items"} · Ready for checkout` : "Good food starts here"}</Text></View>
-          <View style={c.headerBag}><CartMark size={24} dark={darkMode} />{!!itemCount && <View style={c.headerBadge}><Text style={c.headerBadgeText}>{itemCount > 99 ? "99+" : itemCount}</Text></View>}</View>
+          <View style={{ flex: 1 }}><Text style={c.eyebrow}>{isBuyNow ? "BUY NOW" : "YOUR ORDER"}</Text><Text style={c.title}>{isBuyNow ? "Review order" : "Your cart"}</Text><Text style={c.subtitle}>{itemCount ? `${itemCount} ${itemCount === 1 ? "item" : "items"} · Ready for checkout` : "Good food starts here"}</Text></View>
         </View>
-        {!!cart.length && <Pressable accessibilityRole="button" accessibilityLabel={`Visit ${cart[0].product.vendor.name}`} onPress={() => router.push(`/vendor/${cart[0].product.vendorId}`)} style={({ pressed }) => [c.vendorStrip, pressed && c.pressed]}><View style={c.vendorMark}><Store size={21} color={colors.green} strokeWidth={2} /></View><View style={{ flex: 1 }}><Text style={c.vendorLabel}>ORDERING FROM</Text><Text numberOfLines={1} style={c.vendorName}>{cart[0].product.vendor.name}</Text><Text style={c.vendorMeta}>One shop · one delivery</Text></View><ChevronRight size={19} color="#C7D9D9" /></Pressable>}
-        {!!cart.length && <View style={c.sectionHeading}><View><Text style={c.sectionEyebrow}>IN YOUR BAG</Text><Text style={c.sectionTitle}>{cart.length} {cart.length === 1 ? "product" : "products"}</Text></View><Pressable accessibilityRole="button" disabled={busy} onPress={() => setClearConfirm(true)} style={({ pressed }) => [c.clearLink, busy && { opacity: .5 }, pressed && c.pressed]}><Trash2 size={15} color={darkMode ? "#FFB89F" : colors.green} /><Text style={c.clearText}>Clear all</Text></Pressable></View>}
+        {isBuyNow && <View style={c.buyNowBanner}><CircleCheck size={19} color={colors.success} /><View style={{ flex: 1 }}><Text style={c.buyNowTitle}>{buyNowCheckout?.includesCart ? "Buying with your cart" : "Buying only this selection"}</Text><Text style={c.buyNowCopy}>{buyNowCheckout?.includesCart ? "This checkout includes the selected product and all cart items, grouped into shop orders." : "Your saved cart will not be changed when this order is placed."}</Text></View></View>}
+        {!!orderLines.length && <View style={c.sectionHeading}><View><Text style={c.sectionEyebrow}>{isBuyNow ? "BUYING NOW" : "IN YOUR BAG"}</Text><Text style={c.sectionTitle}>{orderLines.length} {orderLines.length === 1 ? "product" : "products"} · {orderGroups.length} {orderGroups.length === 1 ? "shop" : "shops"}</Text></View>{!isBuyNow && <Pressable accessibilityRole="button" disabled={busy} onPress={() => setClearConfirm(true)} style={({ pressed }) => [c.clearLink, busy && { opacity: .5 }, pressed && c.pressed]}><Trash2 size={15} color={darkMode ? "#FFB89F" : colors.green} /><Text style={c.clearText}>Clear all</Text></Pressable>}</View>}
         {clearConfirm && <View style={c.clearPanel}><Text style={c.clearPanelTitle}>Remove everything from your cart?</Text><Text style={c.clearPanelCopy}>You can add these products again from the shop.</Text><View style={c.clearActions}><Pressable accessibilityRole="button" onPress={() => setClearConfirm(false)} style={c.keepButton}><Text style={c.keepText}>Keep items</Text></Pressable><Pressable accessibilityRole="button" onPress={() => { clear(); setCoupon(""); setCouponDraft(""); setClearConfirm(false); setRefreshMessage(""); }} style={c.confirmClear}><Text style={c.confirmClearText}>Clear cart</Text></Pressable></View></View>}
       </></ThemeContent>}
       {error && <Notice text={error} />}
@@ -326,26 +362,28 @@ export default function Cart() {
             </>
           )}
         </>
-      ) : cart.length ? (
+      ) : orderLines.length ? (
         <>
           <View style={{ marginTop: 4 }}>
-            {cart.map((l) => (
+            {orderGroups.map((group) => <View key={group.vendorId}>
+              <Pressable accessibilityRole="button" accessibilityLabel={`Visit ${group.vendorName}`} onPress={() => router.push(`/vendor/${group.vendorId}`)} style={({ pressed }) => [c.vendorStrip, pressed && c.pressed]}><View style={c.vendorMark}><Store size={21} color={colors.green} strokeWidth={2} /></View><View style={{ flex: 1 }}><Text style={c.vendorLabel}>ORDER FROM · {group.lines.length} {group.lines.length === 1 ? "PRODUCT" : "PRODUCTS"}</Text><Text numberOfLines={1} style={c.vendorName}>{group.vendorName}</Text><Text style={c.vendorMeta}>Separate order for this shop</Text></View><ChevronRight size={19} color="#C7D9D9" /></Pressable>
+            {group.lines.map((l) => (
               <ThemeContent key={l.product.id}><View style={c.lineCard}>
                 <View style={c.lineMain}>
                   <Pressable accessibilityRole="button" accessibilityLabel={`View ${l.product.name}`} onPress={() => router.push(`/product/${l.product.id}`)} style={c.lineImageWrap}>{l.product.image ? <Image source={{ uri: mediaUrl(l.product.image) }} resizeMode="cover" style={c.lineImage} /> : <View style={c.lineFallback}><Text style={c.lineInitial}>{l.product.name.slice(0, 1).toUpperCase()}</Text></View>}</Pressable>
                   <View style={c.lineBody}>
-                    <View style={c.lineTop}><Pressable accessibilityRole="button" onPress={() => router.push(`/product/${l.product.id}`)} style={{ flex: 1 }}><Text numberOfLines={2} style={c.lineName}>{l.product.name}</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel={`Remove ${l.product.name} from cart`} hitSlop={8} disabled={busy} onPress={() => quantity(l.product.id, 0)} style={({ pressed }) => [c.remove, pressed && c.pressed]}><Trash2 size={17} color={darkMode ? "#FFB89F" : colors.green} /></Pressable></View>
+                    <View style={c.lineTop}><Pressable accessibilityRole="button" onPress={() => router.push(`/product/${l.product.id}`)} style={{ flex: 1 }}><Text numberOfLines={2} style={c.lineName}>{l.product.name}</Text></Pressable><Pressable accessibilityRole="button" accessibilityLabel={`Remove ${l.product.name} from order`} hitSlop={8} disabled={busy} onPress={() => updateQuantity(l.product.id, 0)} style={({ pressed }) => [c.remove, pressed && c.pressed]}><Trash2 size={17} color={darkMode ? "#FFB89F" : colors.green} /></Pressable></View>
                     <Text style={c.lineUnit}>{money(l.product.pricePaise)} per item</Text>
                     <Text style={[c.lineStatus, (!l.product.available || !l.product.active || l.product.stock === 0 || !l.product.vendor.acceptingOrders || (l.product.stock !== null && l.quantity > l.product.stock)) && c.lineStatusOff]}>{l.product.stock === 0 ? "Sold out" : !l.product.available || !l.product.active || !l.product.vendor.acceptingOrders ? "Currently unavailable" : l.product.stock !== null && l.quantity > l.product.stock ? `Only ${l.product.stock} left` : "Available to order"}</Text>
                   </View>
                 </View>
-                <View style={c.lineFooter}><View><Text style={c.lineTotalLabel}>ITEM TOTAL</Text><Text style={c.linePrice}>{money(l.product.pricePaise * l.quantity)}</Text></View><View style={c.stepper}><Pressable accessibilityRole="button" accessibilityLabel={`Remove one ${l.product.name}`} disabled={busy} onPress={() => quantity(l.product.id, l.quantity - 1)} style={({ pressed }) => [c.stepButton, pressed && c.stepPressed]}><Minus size={18} color={darkMode ? "#F4F6F3" : colors.green} strokeWidth={2.5} /></Pressable><Text style={c.stepCount}>{l.quantity}</Text><Pressable accessibilityRole="button" accessibilityLabel={`Add one ${l.product.name}`} disabled={busy || l.quantity >= Math.min(50, l.product.stock ?? 50)} onPress={() => quantity(l.product.id, l.quantity + 1)} style={({ pressed }) => [c.stepButton, pressed && c.stepPressed]}><Plus size={18} color={darkMode ? "#F4F6F3" : colors.green} strokeWidth={2.5} /></Pressable></View></View>
+                <View style={c.lineFooter}><View><Text style={c.lineTotalLabel}>ITEM TOTAL</Text><Text style={c.linePrice}>{money(l.product.pricePaise * l.quantity)}</Text></View><View style={c.stepper}><Pressable accessibilityRole="button" accessibilityLabel={`Remove one ${l.product.name}`} disabled={busy} onPress={() => updateQuantity(l.product.id, l.quantity - 1)} style={({ pressed }) => [c.stepButton, pressed && c.stepPressed]}><Minus size={18} color={darkMode ? "#F4F6F3" : colors.green} strokeWidth={2.5} /></Pressable><Text style={c.stepCount}>{l.quantity}</Text><Pressable accessibilityRole="button" accessibilityLabel={`Add one ${l.product.name}`} disabled={busy || l.quantity >= Math.min(50, l.product.stock ?? 50)} onPress={() => updateQuantity(l.product.id, l.quantity + 1)} style={({ pressed }) => [c.stepButton, pressed && c.stepPressed]}><Plus size={18} color={darkMode ? "#F4F6F3" : colors.green} strokeWidth={2.5} /></Pressable></View></View>
                 <Pressable accessibilityRole="button" accessibilityState={{ expanded: expandedNotes.includes(l.product.id) }} onPress={() => setExpandedNotes((current) => current.includes(l.product.id) ? current.filter((id) => id !== l.product.id) : [...current, l.product.id])} style={({ pressed }) => [c.noteToggle, pressed && c.pressed]}><MessageSquareText size={16} color={darkMode ? "#FFB89F" : colors.green} /><Text numberOfLines={1} style={c.noteToggleText}>{l.note ? `Note: ${l.note}` : "Add a note for this item"}</Text><ChevronRight size={15} color={darkMode ? "#A7B3B4" : colors.muted} style={expandedNotes.includes(l.product.id) ? { transform: [{ rotate: "90deg" }] } : undefined} /></Pressable>
-                {expandedNotes.includes(l.product.id) && <View style={c.noteField}><Field label="Instructions for this item" value={l.note || ""} placeholder="e.g. less spicy, no onions" maxLength={300} onChangeText={(value) => note(l.product.id, value)} /></View>}
+                {expandedNotes.includes(l.product.id) && <View style={c.noteField}><Field label="Instructions for this item" value={l.note || ""} placeholder="e.g. less spicy, no onions" maxLength={300} onChangeText={(value) => updateNote(l.product.id, value)} /></View>}
               </View></ThemeContent>
-            ))}
+            ))}</View>)}
           </View>
-          <ThemeContent><View style={c.cartActions}><Pressable accessibilityRole="button" onPress={() => router.push(`/vendor/${cart[0].product.vendorId}`)} style={({ pressed }) => [c.addMoreButton, pressed && c.pressed]}><Plus size={19} color={darkMode ? "#FFB89F" : colors.green} strokeWidth={2.5} /><Text style={c.addMoreText}>Add more from this shop</Text><ChevronRight size={17} color={darkMode ? "#FFB89F" : colors.green} /></Pressable><Pressable accessibilityRole="button" disabled={busy} onPress={() => void refreshCart()} style={({ pressed }) => [c.refreshButton, pressed && c.pressed]}><RotateCw size={15} color={darkMode ? "#FFB89F" : colors.green} /><Text style={c.refreshText}>{busy ? "Refreshing…" : "Refresh items"}</Text></Pressable></View></ThemeContent>
+          <ThemeContent><View style={c.cartActions}>{!isBuyNow && <Pressable accessibilityRole="button" onPress={() => router.push("/(tabs)/home")} style={({ pressed }) => [c.addMoreButton, pressed && c.pressed]}><Plus size={19} color={darkMode ? "#FFB89F" : colors.green} strokeWidth={2.5} /><Text style={c.addMoreText}>Add more products</Text><ChevronRight size={17} color={darkMode ? "#FFB89F" : colors.green} /></Pressable>}<Pressable accessibilityRole="button" disabled={busy} onPress={() => void refreshCart()} style={({ pressed }) => [c.refreshButton, isBuyNow && { flex: 1 }, pressed && c.pressed]}><RotateCw size={15} color={darkMode ? "#FFB89F" : colors.green} /><Text style={c.refreshText}>{busy ? "Refreshing…" : "Refresh items"}</Text></Pressable></View></ThemeContent>
           <ThemeContent><View style={c.sectionHeading}><View><Text style={c.sectionEyebrow}>CAMPUS DELIVERY</Text><Text style={c.sectionTitle}>Deliver to</Text></View><MapPin size={21} color={darkMode ? "#FFB89F" : colors.green} /></View></ThemeContent>
           {addresses.map((a) => (
             <ThemeContent key={a.id}><Pressable
@@ -381,10 +419,32 @@ export default function Cart() {
         </>
       ) : (
         <>
-          <ThemeContent><View style={c.emptyCard}><View style={c.emptyHalo}><ShoppingCart size={48} color={darkMode ? "#FFB89F" : colors.green} strokeWidth={1.7} /></View><Text style={c.emptyTitle}>Your cart feels lonely</Text><Text style={c.emptyCopy}>Explore campus favourites, add what you love, and come back when you’re ready to order.</Text><Pressable accessibilityRole="button" onPress={() => router.push("/(tabs)/home")} style={({ pressed }) => [c.exploreButton, pressed && c.checkoutPressed]}><Text style={c.exploreText}>Explore campus</Text><ChevronRight size={18} color="#FFFFFF" /></Pressable></View></ThemeContent>
+          <ThemeContent><View style={c.emptyCard}><View style={c.emptyHalo}><ShoppingCart size={48} color={darkMode ? "#FFB89F" : colors.green} strokeWidth={1.7} /></View><Text style={c.emptyTitle}>{isBuyNow ? "Nothing selected" : "Your cart feels lonely"}</Text><Text style={c.emptyCopy}>{isBuyNow ? "Go back and choose the product you want to buy now." : "Explore campus favourites, add what you love, and come back when you’re ready to order."}</Text><Pressable accessibilityRole="button" onPress={() => isBuyNow && router.canGoBack() ? router.back() : router.push("/(tabs)/home")} style={({ pressed }) => [c.exploreButton, pressed && c.checkoutPressed]}><Text style={c.exploreText}>{isBuyNow ? "Go back" : "Explore campus"}</Text><ChevronRight size={18} color="#FFFFFF" /></Pressable></View></ThemeContent>
         </>
       )}
     </Screen>
+    <Modal animationType="fade" onRequestClose={viewOrders} statusBarTranslucent transparent visible={Boolean(placedReceipt)}>
+      <View style={c.receiptBackdrop}>
+        <View style={[c.receiptCard, darkMode && c.receiptCardDark]}>
+          <View style={c.receiptGlow} />
+          <View style={c.receiptIcon}><CircleCheck size={34} color="#FFFFFF" strokeWidth={2.5} /></View>
+          <Text style={c.receiptEyebrow}>ORDER CONFIRMED</Text>
+          <Text accessibilityRole="header" style={[c.receiptTitle, darkMode && c.receiptTitleDark]}>{placedReceipt?.shops.length === 1 ? "Your order is placed" : `${placedReceipt?.shops.length ?? 0} shop orders placed`}</Text>
+          <Text style={[c.receiptCopy, darkMode && c.receiptCopyDark]}>{placedReceipt?.shops.length === 1 ? "Your shop is getting everything ready." : "Each shop received its own order and will prepare it separately."}</Text>
+          <View style={c.receiptOrders}>
+            {placedReceipt?.shops.map((shop) => <View key={shop.code} style={[c.receiptOrder, darkMode && c.receiptOrderDark]}>
+              <View style={c.receiptShopIcon}><Store size={17} color={colors.green} /></View>
+              <View style={{ flex: 1, minWidth: 0 }}><Text numberOfLines={1} style={[c.receiptShopName, darkMode && c.receiptTitleDark]}>{shop.name}</Text><Text style={[c.receiptOrderCode, darkMode && c.receiptCopyDark]}>Order {shop.code}</Text></View>
+              <Text style={c.receiptOrderTotal}>{money(shop.totalPaise)}</Text>
+            </View>)}
+          </View>
+          <View style={c.receiptTotalRow}><Text style={[c.receiptTotalLabel, darkMode && c.receiptCopyDark]}>TOTAL DUE ON DELIVERY</Text><Text style={c.receiptTotal}>{money(placedReceipt?.totalPaise ?? 0)}</Text></View>
+          <Pressable accessibilityRole="button" onPress={viewOrders} style={({ pressed }) => [c.receiptButton, pressed && c.checkoutPressed]}><Text style={c.receiptButtonText}>Track my orders</Text><ChevronRight size={20} color="#FFFFFF" strokeWidth={2.5} /></Pressable>
+          <Text style={[c.receiptFootnote, darkMode && c.receiptCopyDark]}>Pay each shop when its order arrives.</Text>
+        </View>
+      </View>
+    </Modal>
+    </>
   );
 }
 
@@ -396,9 +456,9 @@ const c = StyleSheet.create({
   eyebrow: { color: colors.green, fontSize: 9, letterSpacing: 1.5, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" },
   title: { color: colors.ink, fontSize: 29, letterSpacing: -1, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold", marginTop: 2 },
   subtitle: { color: colors.muted, fontSize: 11, marginTop: 3 },
-  headerBag: { width: 49, height: 49, borderRadius: 17, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, alignItems: "center", justifyContent: "center" },
-  headerBadge: { position: "absolute", right: -3, top: -5, minWidth: 19, height: 19, paddingHorizontal: 4, borderRadius: 10, backgroundColor: colors.green, borderWidth: 2, borderColor: colors.bg, alignItems: "center", justifyContent: "center" },
-  headerBadgeText: { color: "#FFFFFF", fontSize: 8, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" },
+  buyNowBanner: { flexDirection: "row", alignItems: "center", gap: 10, padding: 13, borderRadius: 16, backgroundColor: "#E8F5ED", borderWidth: 1, borderColor: "#C7E3D2", marginBottom: 16 },
+  buyNowTitle: { color: colors.success, fontSize: 11, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" },
+  buyNowCopy: { color: colors.muted, fontSize: 9, lineHeight: 14, marginTop: 2 },
   vendorStrip: { minHeight: 89, flexDirection: "row", alignItems: "center", gap: 13, backgroundColor: colors.navy, borderRadius: 23, padding: 17, marginBottom: 22, boxShadow: "0px 8px 20px rgba(24,50,61,0.14)" },
   vendorMark: { width: 48, height: 48, borderRadius: 16, backgroundColor: "#FFFFFF", alignItems: "center", justifyContent: "center" },
   vendorLabel: { color: "#B4C8CA", fontSize: 9, letterSpacing: 1.2, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" },
@@ -502,5 +562,28 @@ const c = StyleSheet.create({
   emptyCopy: { color: colors.muted, fontSize: 11, lineHeight: 18, textAlign: "center", marginTop: 8, maxWidth: 270 },
   exploreButton: { minHeight: 48, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, borderRadius: 14, backgroundColor: colors.green, paddingHorizontal: 20, marginTop: 22 },
   exploreText: { color: "#FFFFFF", fontSize: 11, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" },
+  receiptBackdrop: { flex: 1, alignItems: "center", justifyContent: "center", padding: 20, backgroundColor: "rgba(9,25,31,.68)" },
+  receiptCard: { width: "100%", maxWidth: 450, maxHeight: "90%", overflow: "hidden", borderRadius: 28, backgroundColor: "#FFFFFF", padding: 23, borderWidth: 1, borderColor: "rgba(255,255,255,.68)", boxShadow: "0px 18px 48px rgba(0,0,0,.26)" },
+  receiptCardDark: { backgroundColor: "#18272C", borderColor: "#304247" },
+  receiptGlow: { position: "absolute", top: -100, right: -70, width: 230, height: 230, borderRadius: 115, backgroundColor: "rgba(217,79,50,.10)" },
+  receiptIcon: { width: 62, height: 62, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: colors.success, marginBottom: 17, boxShadow: "0px 8px 20px rgba(35,155,104,.25)" },
+  receiptEyebrow: { color: colors.success, fontSize: 9, letterSpacing: 1.5, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" },
+  receiptTitle: { color: colors.ink, fontSize: 25, lineHeight: 31, letterSpacing: -.7, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold", marginTop: 5 },
+  receiptTitleDark: { color: "#F4F6F3" },
+  receiptCopy: { color: colors.muted, fontSize: 11, lineHeight: 17, marginTop: 5 },
+  receiptCopyDark: { color: "#A7B3B4" },
+  receiptOrders: { gap: 8, marginTop: 19 },
+  receiptOrder: { minHeight: 67, flexDirection: "row", alignItems: "center", gap: 11, borderRadius: 16, backgroundColor: "#F8F7F3", borderWidth: 1, borderColor: colors.line, paddingHorizontal: 11, paddingVertical: 9 },
+  receiptOrderDark: { backgroundColor: "#1A292E", borderColor: "#304247" },
+  receiptShopIcon: { width: 38, height: 38, borderRadius: 13, alignItems: "center", justifyContent: "center", backgroundColor: colors.lime },
+  receiptShopName: { color: colors.ink, fontSize: 11, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" },
+  receiptOrderCode: { color: colors.muted, fontSize: 9, marginTop: 3 },
+  receiptOrderTotal: { color: colors.green, fontSize: 11, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" },
+  receiptTotalRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 10, borderTopWidth: 1, borderTopColor: colors.line, paddingTop: 15, marginTop: 16 },
+  receiptTotalLabel: { color: colors.muted, fontSize: 8, letterSpacing: .8, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" },
+  receiptTotal: { color: colors.ink, fontSize: 21, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" },
+  receiptButton: { minHeight: 53, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 7, borderRadius: 15, backgroundColor: colors.green, marginTop: 19 },
+  receiptButtonText: { color: "#FFFFFF", fontSize: 12, fontWeight: "800", fontFamily: "PlusJakartaSans_800ExtraBold" },
+  receiptFootnote: { color: colors.muted, fontSize: 9, textAlign: "center", marginTop: 10 },
 });
 
